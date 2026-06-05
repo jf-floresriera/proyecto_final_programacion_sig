@@ -1,0 +1,2827 @@
+# Anexo C. Código completo integrado
+
+Este anexo integra los scripts principales del proyecto. En la salida HTML cada archivo aparece dentro de un bloque desplegable; en Word/PDF puede visualizarse como código suplementario al final del documento.
+
+
+## code/1_Paso_GEE_Adaptado.js
+
+<details>
+<summary>Google Earth Engine / JavaScript: code/1_Paso_GEE_Adaptado.js</summary>
+
+
+```javascript
+// =============================================================================
+// SCRIPT 1 · AOI + CONFIGURACIÓN 2024
+// Finca La Esperanza sin Lote Casa
+// =============================================================================
+// =============================================================================
+// SECCIÓN 1 · AOI
+// =============================================================================
+var Area_Total = ee.Geometry.Polygon([[
+  [-72.02911590018898, 4.323774005392068],
+  [-72.02320164960223, 4.320341858927772],
+  [-71.99426061433154, 4.337725140154523],
+  [-71.99372417252856, 4.338110271794471],
+  [-71.99303752702075, 4.338666572705499],
+  [-71.99149257462817, 4.340207096166426],
+  [-71.99072009843188, 4.340870376132908],
+  [-71.98967671912509, 4.341426675010239],
+  [-72.00730581274610, 4.349063111509516],
+  [-72.00862576723136, 4.353153345576473],
+  [-72.01213946104087, 4.356828060080524],
+  [-72.01526010903413, 4.352303621556992],
+  [-72.01894546422060, 4.346895815199964],
+  [-72.02098296949191, 4.341000332940370],
+  [-72.02443983146695, 4.334085615058952],
+  [-72.02447201797513, 4.333775368489792],
+  [-72.02456857749966, 4.333529310775441],
+  [-72.02911590018898, 4.323774005392068]
+]]);
+
+var Lote_Casa = ee.Geometry.Polygon([[
+  [-72.02527036942277, 4.327000978587103],
+  [-72.02123566610653, 4.329945886052444],
+  [-72.02102108938534, 4.329988678906903],
+  [-72.02003403646786, 4.329753318177450],
+  [-72.01848908407528, 4.329603543129691],
+  [-72.01829596502621, 4.329582146691876],
+  [-72.01656862242062, 4.328672797525615],
+  [-72.01685830099423, 4.326244294986618],
+  [-72.01699704976303, 4.325322370602150],
+  [-72.01762468667252, 4.324659076998467],
+  [-72.01774806828720, 4.324616283842795],
+  [-72.01786608548386, 4.324659076998467],
+  [-72.01965780110581, 4.325525637880559],
+  [-72.01980264039261, 4.325616573224313],
+  [-72.02000648827774, 4.325718206830860],
+  [-72.02018351407273, 4.325793094742748],
+  [-72.02030689568741, 4.325916124867642],
+  [-72.02041954846604, 4.326097995450447],
+  [-72.02046782822830, 4.326124741120704],
+  [-72.02074141354782, 4.326172883324792],
+  [-72.02128858418686, 4.326199628992403],
+  [-72.02208251805527, 4.325456099080927],
+  [-72.02527036942277, 4.327000978587103]
+]]);
+
+var AOI       = Area_Total.difference({ right: Lote_Casa, maxError: 1 });
+var parcel    = AOI.bounds();
+var maiz_mask = ee.Image(1).clip(AOI).rename('maiz');
+
+print('Área Total finca (ha):',    Area_Total.area(1).divide(10000));
+print('Área Lote_Casa (ha):',      Lote_Casa.area(1).divide(10000));
+print('Área finca sin casa (ha):', AOI.area(1).divide(10000));
+
+Map.centerObject(AOI, 14);
+Map.addLayer(Area_Total, {color: '98ff00'},              'Área Total');
+Map.addLayer(Lote_Casa,  {color: 'ff0000'},              'Lote Casa (excluido)');
+Map.addLayer(AOI,        {color: '0080ff', opacity: 0.4},'AOI — Finca sin Casa');
+
+// AOI
+
+var AOI = Area_Total.difference({right: Lote_Casa, maxError: 1});
+
+var area_total_ha = Area_Total.area(1).divide(10000);
+var area_casa_ha  = Lote_Casa.area(1).divide(10000);
+var area_neta_ha  = AOI.area(1).divide(10000);
+
+print('Área Total finca (ha):', area_total_ha);
+print('Área Lote_Casa (ha):', area_casa_ha);
+print('Área finca sin casa (ha):', area_neta_ha);
+
+Map.centerObject(AOI, 14);
+Map.addLayer(Area_Total, {color: '98ff00'}, 'Área Total');
+Map.addLayer(Lote_Casa, {color: 'ff0000'}, 'Lote Casa (excluido)');
+Map.addLayer(AOI, {color: '0080ff', opacity: 0.4}, 'AOI — Finca sin Casa');
+
+// Fechas 2024
+var year = 2024;
+var startYear = ee.Date.fromYMD(year, 1, 1);
+var endYear   = ee.Date.fromYMD(year + 1, 1, 1);
+
+print('Inicio:', startYear);
+print('Fin:', endYear);
+```
+
+
+</details>
+
+
+## code/2_Paso_GEE_Adaptado.js
+
+<details>
+<summary>Google Earth Engine / JavaScript: code/2_Paso_GEE_Adaptado.js</summary>
+
+
+```javascript
+// ============================================================
+// SCRIPT COMPLETO FINAL: GPR LAI / FVC / laiCab
+// Finca La Esperanza — Año 2024
+// SIN .getInfo() en loops → no congela el navegador
+// ============================================================
+
+var importedModels = require('users/msalinero85/GPRPhenologyDemos:S2BOAModels');
+var vis            = require('users/msalinero85/GPRPhenologyDemos:visualization');
+
+// =============================================================================
+// SECCIÓN 1 · AOI
+// =============================================================================
+var Area_Total = ee.Geometry.Polygon([[
+  [-72.02911590018898, 4.323774005392068],
+  [-72.02320164960223, 4.320341858927772],
+  [-71.99426061433154, 4.337725140154523],
+  [-71.99372417252856, 4.338110271794471],
+  [-71.99303752702075, 4.338666572705499],
+  [-71.99149257462817, 4.340207096166426],
+  [-71.99072009843188, 4.340870376132908],
+  [-71.98967671912509, 4.341426675010239],
+  [-72.00730581274610, 4.349063111509516],
+  [-72.00862576723136, 4.353153345576473],
+  [-72.01213946104087, 4.356828060080524],
+  [-72.01526010903413, 4.352303621556992],
+  [-72.01894546422060, 4.346895815199964],
+  [-72.02098296949191, 4.341000332940370],
+  [-72.02443983146695, 4.334085615058952],
+  [-72.02447201797513, 4.333775368489792],
+  [-72.02456857749966, 4.333529310775441],
+  [-72.02911590018898, 4.323774005392068]
+]]);
+
+var Lote_Casa = ee.Geometry.Polygon([[
+  [-72.02527036942277, 4.327000978587103],
+  [-72.02123566610653, 4.329945886052444],
+  [-72.02102108938534, 4.329988678906903],
+  [-72.02003403646786, 4.329753318177450],
+  [-72.01848908407528, 4.329603543129691],
+  [-72.01829596502621, 4.329582146691876],
+  [-72.01656862242062, 4.328672797525615],
+  [-72.01685830099423, 4.326244294986618],
+  [-72.01699704976303, 4.325322370602150],
+  [-72.01762468667252, 4.324659076998467],
+  [-72.01774806828720, 4.324616283842795],
+  [-72.01786608548386, 4.324659076998467],
+  [-72.01965780110581, 4.325525637880559],
+  [-72.01980264039261, 4.325616573224313],
+  [-72.02000648827774, 4.325718206830860],
+  [-72.02018351407273, 4.325793094742748],
+  [-72.02030689568741, 4.325916124867642],
+  [-72.02041954846604, 4.326097995450447],
+  [-72.02046782822830, 4.326124741120704],
+  [-72.02074141354782, 4.326172883324792],
+  [-72.02128858418686, 4.326199628992403],
+  [-72.02208251805527, 4.325456099080927],
+  [-72.02527036942277, 4.327000978587103]
+]]);
+
+var AOI       = Area_Total.difference({ right: Lote_Casa, maxError: 1 });
+var parcel    = AOI.bounds();
+var maiz_mask = ee.Image(1).clip(AOI).rename('maiz');
+
+print('Área Total finca (ha):',    Area_Total.area(1).divide(10000));
+print('Área Lote_Casa (ha):',      Lote_Casa.area(1).divide(10000));
+print('Área finca sin casa (ha):', AOI.area(1).divide(10000));
+
+Map.centerObject(AOI, 14);
+Map.addLayer(Area_Total, {color: '98ff00'},              'Área Total');
+Map.addLayer(Lote_Casa,  {color: 'ff0000'},              'Lote Casa (excluido)');
+Map.addLayer(AOI,        {color: '0080ff', opacity: 0.4},'AOI — Finca sin Casa');
+
+// =============================================================================
+// SECCIÓN 2 · CONFIGURACIÓN
+// =============================================================================
+var currentTile  = '18NZK';
+var start_date   = '2024-01-01';
+var end_date     = '2024-12-31';
+var ASSET_FOLDER = 'projects/wide-origin-466923-d8/assets';
+var vegIndices   = ['LAI', 'FVC', 'laiCab'];
+
+// =============================================================================
+// SECCIÓN 3 · MÁSCARA DE NUBES
+// ⚠️ Solo .set() — NO copyProperties (devuelve Element y rompe la cadena)
+// =============================================================================
+function maskS2cloud_and_water(image) {
+  var scl  = image.select('SCL');
+  var qa   = image.select('QA60');
+  var mask = scl.neq(1).and(scl.neq(2)).and(scl.neq(3))
+               .and(scl.neq(6)).and(scl.neq(7)).and(scl.neq(8))
+               .and(scl.neq(9)).and(scl.neq(10)).and(scl.neq(11))
+               .and(qa.bitwiseAnd(1 << 10).eq(0))
+               .and(qa.bitwiseAnd(1 << 11).eq(0));
+  return image.updateMask(mask)
+    .set('system:time_start', image.get('system:time_start'));
+}
+
+// =============================================================================
+// SECCIÓN 4 · MODELO GPR
+// =============================================================================
+function makeGPR(model) {
+  return function(image_orig) {
+    var XTrain_dim = model.X_train.length().get([0]);
+    var band_seq   = ee.List.sequence(1, XTrain_dim).map(function(e) {
+      return ee.String('B').cat(ee.String(e)).replace('[.]+[0-9]*$', '');
+    });
+    var im_hyp  = image_orig
+      .subtract(ee.Image(model.mx)).divide(ee.Image(model.sx))
+      .multiply(ee.Image(model.hyp_ell)).toArray().toArray(1);
+    var im_norm = image_orig
+      .subtract(ee.Image(model.mx)).divide(ee.Image(model.sx))
+      .toArray().toArray(1);
+    var PtTPt  = im_hyp.matrixTranspose().matrixMultiply(im_norm)
+                   .arrayProject([0]).multiply(-0.5);
+    var PtTDX  = ee.Image(model.X_train)
+                   .matrixMultiply(im_hyp)
+                   .arrayProject([0]).arrayFlatten([band_seq]);
+    var arg1   = PtTPt.exp().multiply(model.hyp_sig);
+    var k_star = PtTDX.subtract(
+                   ee.Image(model.XDX_pre_calc).multiply(0.5)).exp().toArray();
+    var mean_pred = k_star
+      .arrayDotProduct(ee.Image(model.alpha_coefficients).toArray())
+      .multiply(arg1)
+      .toArray(1).arrayProject([0])
+      .arrayFlatten([[model.veg_index]])
+      .add(model.mean_model);
+    mean_pred = mean_pred.where(mean_pred.lt(0), ee.Image(0.00001));
+    return image_orig.addBands(mean_pred)
+      .select(model.veg_index).toFloat();
+  };
+}
+
+// =============================================================================
+// SECCIÓN 5 · addVariables
+// =============================================================================
+var addVariables = function(image) {
+  var days = ee.Date(image.get('system:time_start'))
+               .difference(ee.Date('1970-01-01'), 'days');
+  return image.addBands(ee.Image(days).rename('t').float())
+    .set('system:time_start', image.get('system:time_start'));
+};
+
+// =============================================================================
+// SECCIÓN 6 · GAP-FILLING
+// =============================================================================
+function makeGapFill(model, ell2_ts, sigf_ts, sign_ts, veg_index_GPR_fn) {
+  return function(image) {
+    var imageDate = ee.Date(image.get('system:time_start'));
+    var tnum      = imageDate.difference(ee.Date('1970-01-01'), 'days');
+    var t0        = imageDate.advance(-30, 'day');
+    var t1        = imageDate.advance( 30, 'day');
+
+    var col = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+      .filter(ee.Filter.eq('MGRS_TILE', currentTile))
+      .filterBounds(parcel)
+      .filterDate(t0, t1)
+      .map(function(img) {
+        var m = maskS2cloud_and_water(img);
+        var s = m.divide(model.scaleFactor);
+        var c = s.clip(parcel);
+        return c.set('system:time_start', img.get('system:time_start'));
+      })
+      .select(['B2','B3','B4','B5','B6','B7','B8','B8A','B11','B12'])
+      .map(veg_index_GPR_fn)
+      .map(function(img) {
+        return img.updateMask(maiz_mask)
+          .set('system:time_start', img.get('system:time_start'));
+      });
+
+    var mask_col = col.map(function(img) {
+      return img.select(model.veg_index).gt(0).rename('msk')
+        .set('system:time_start', img.get('system:time_start'));
+    });
+    var t_col   = col.map(addVariables).select('t');
+    var t_star  = t_col.first().multiply(0).add(tnum).toArray().toArray(1);
+    var N       = t_col.size();
+    var t_vec   = mask_col.toBands().multiply(t_col.toBands())
+                    .unmask().toArray().toArray(1);
+    var v_vec   = col.toBands().unmask().toArray().toArray(1);
+    var ones_v  = t_vec.multiply(0).add(1.0);
+    var ones_s  = t_star.multiply(0).add(1.0);
+    var II      = ee.Image(ee.Array.identity(N));
+    var prod    = t_vec.matrixMultiply(ones_v.matrixTranspose());
+    var K       = prod.subtract(prod.matrixTranspose())
+                    .pow(2).multiply(ell2_ts).multiply(-0.5).exp().multiply(sigf_ts);
+    var L       = II.multiply(sign_ts).add(K).matrixCholeskyDecomposition();
+    var alpha   = L.matrixTranspose().matrixInverse()
+                    .matrixMultiply(L.matrixInverse().matrixMultiply(v_vec));
+    var t_s_mat = t_star.matrixMultiply(ones_v.matrixTranspose());
+    var t_t_mat = t_vec.matrixMultiply(ones_s.matrixTranspose()).matrixTranspose();
+    var k_s     = t_s_mat.subtract(t_t_mat)
+                    .pow(2).multiply(ell2_ts).multiply(-0.5).exp().multiply(sigf_ts);
+    var pred    = k_s.matrixMultiply(alpha).arrayProject([0])
+                    .arrayFlatten([['gapfilled']]).toFloat();
+    pred = pred.where(pred.lt(0), ee.Image(0.00001)).toFloat();
+    return image.addBands(pred).select('gapfilled')
+      .set('system:time_start', image.get('system:time_start'));
+  };
+}
+
+// =============================================================================
+// SECCIÓN 7 · COLECCIÓN BASE
+// =============================================================================
+var S2base = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+  .filter(ee.Filter.eq('MGRS_TILE', currentTile))
+  .filterBounds(parcel)
+  .filterDate(start_date, end_date)
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 80));
+
+print('Total imágenes S2 base 2024:', S2base.size());
+
+Map.addLayer(
+  S2base.filterDate('2024-03-01','2024-05-01')
+    .map(maskS2cloud_and_water).median(),
+  {bands: ['B4','B3','B2'], min: 0, max: 3000},
+  'RGB abr-may 2024'
+);
+
+// =============================================================================
+// SECCIÓN 8 · LOOP PRINCIPAL — genera exports con .evaluate() (NO .getInfo())
+// ✅ evaluate() es ASÍNCRONO → no bloquea ni congela el navegador
+// =============================================================================
+
+// Función que genera los exports para UNA variable dado su índice numérico
+function processVariable(vegIdx, model, visParams, ell2, sigf, sign) {
+
+  var veg_index_GPR = makeGPR(model);
+
+  var S2col = S2base
+    .map(function(img) {
+      var m = maskS2cloud_and_water(img);
+      var s = m.divide(model.scaleFactor);
+      var c = s.clip(parcel);
+      return c.set('system:time_start', img.get('system:time_start'));
+    })
+    .select(['B2','B3','B4','B5','B6','B7','B8','B8A','B11','B12'])
+    .map(veg_index_GPR)
+    .map(function(img) {
+      return img.updateMask(maiz_mask)
+        .set('system:time_start', img.get('system:time_start'));
+    });
+
+  print('── ' + vegIdx + ' · Imágenes 2024:', S2col.size());
+  Map.addLayer(S2col.median(), visParams, vegIdx + ' — mediana 2024');
+
+  // ── PASO 1: Export sin gap-filling ──────────────────────────────────
+  // .evaluate() llama al servidor UNA SOLA VEZ y recibe todas las fechas
+  // en el callback — sin bloquear el navegador
+  var folder1 = ASSET_FOLDER + '/GPR_' + vegIdx + '_2024';
+  var dates1  = S2col.aggregate_array('system:time_start')
+                  .map(function(t){ return ee.Date(t).format('YYYY-MM-dd'); });
+  var list1   = S2col.toList(S2col.size());
+
+  dates1.evaluate(function(dateArr) {
+    for (var i = 0; i < dateArr.length; i++) {
+      Export.image.toAsset({
+        image:       ee.Image(list1.get(i)),
+        description: vegIdx + '_' + dateArr[i],
+        assetId:     folder1 + '/' + vegIdx + '_' + dateArr[i],
+        region:      parcel,
+        scale:       20,
+        crs:         'EPSG:4326',
+        maxPixels:   1e9
+      });
+    }
+    print('✅ ' + vegIdx + ' — ' + dateArr.length + ' tasks sin GF en panel Tasks');
+  });
+
+  // ── PASO 2: Gap-filling + Export ─────────────────────────────────────
+  var folder2      = ASSET_FOLDER + '/GF_' + vegIdx + '_2024';
+  var gapFillFn    = makeGapFill(model, ell2, sigf, sign, veg_index_GPR);
+  var gapfilledCol = S2col.map(gapFillFn);
+  var list2        = gapfilledCol.toList(gapfilledCol.size());
+  var dates2       = gapfilledCol.aggregate_array('system:time_start')
+                      .map(function(t){ return ee.Date(t).format('YYYYMMdd'); });
+
+  dates2.evaluate(function(dateArr) {
+    for (var j = 0; j < dateArr.length; j++) {
+      Export.image.toAsset({
+        image:       ee.Image(list2.get(j)),
+        description: 'GF_' + vegIdx + '_Meta_' + dateArr[j],
+        assetId:     folder2 + '/' + dateArr[j],
+        scale:       20,
+        region:      parcel,
+        maxPixels:   1e13
+      });
+    }
+    print('✅ ' + vegIdx + ' — ' + dateArr.length + ' tasks con GF en panel Tasks');
+  });
+}
+
+// Llamar la función para cada variable con IIFE para cerrar correctamente
+for (var v = 0; v < vegIndices.length; v++) {
+  (function(idx) {
+    var vegIdx  = vegIndices[idx];
+    var model   = importedModels.models[vegIdx];
+    var visP    = vis.visparams[vegIdx];
+    var ell2    = model.gf_hyperparams['media'].ell2_ts;
+    var sigf    = model.gf_hyperparams['media'].sigf_ts;
+    var sign    = model.gf_hyperparams['media'].sign_ts;
+    processVariable(vegIdx, model, visP, ell2, sigf, sign);
+  })(v);
+}
+
+print('⏳ Generando tasks de forma asíncrona...');
+print('   Espera unos segundos y aparecerán en el panel Tasks →');
+print('   Luego haz clic en RUN ALL');
+```
+
+
+</details>
+
+
+## code/3_Paso_GEE_Adaptado.js
+
+<details>
+<summary>Google Earth Engine / JavaScript: code/3_Paso_GEE_Adaptado.js</summary>
+
+
+```javascript
+// ============================================================
+// PASO 3 CORREGIDO: lee assets desde Folder (IndexedFolder)
+// usando ee.data.listAssets() en lugar de ee.ImageCollection()
+// ============================================================
+
+var phenoFuncs             = require('users/msalinero85/GPRPhenologyDemos:PhenologyFunctions');
+var addDoy                 = phenoFuncs.addDoy;
+var get_Double_Logistic_Params = phenoFuncs.get_Double_Logistic_Params;
+
+var ASSET_FOLDER = 'projects/wide-origin-466923-d8/assets';
+var vegIndices   = ['LAI', 'FVC', 'laiCab'];
+
+var lsp_palette = [
+  'FFFFFF','8EF82D','78C135','3FBA37',
+  'DAEB0D','EBB60D','EB740D','F20C0C',
+  'E817DF','20A1E5','1835D7','49538C'
+];
+var lspVis = { palette: lsp_palette, min: 0, max: 365 };
+
+var Area_Total = ee.Geometry.Polygon([[
+  [-72.02911590018898, 4.323774005392068],
+  [-72.02320164960223, 4.320341858927772],
+  [-71.99426061433154, 4.337725140154523],
+  [-71.99372417252856, 4.338110271794471],
+  [-71.99303752702075, 4.338666572705499],
+  [-71.99149257462817, 4.340207096166426],
+  [-71.99072009843188, 4.340870376132908],
+  [-71.98967671912509, 4.341426675010239],
+  [-72.00730581274610, 4.349063111509516],
+  [-72.00862576723136, 4.353153345576473],
+  [-72.01213946104087, 4.356828060080524],
+  [-72.01526010903413, 4.352303621556992],
+  [-72.01894546422060, 4.346895815199964],
+  [-72.02098296949191, 4.341000332940370],
+  [-72.02443983146695, 4.334085615058952],
+  [-72.02447201797513, 4.333775368489792],
+  [-72.02456857749966, 4.333529310775441],
+  [-72.02911590018898, 4.323774005392068]
+]]);
+var Lote_Casa = ee.Geometry.Polygon([[
+  [-72.02527036942277, 4.327000978587103],
+  [-72.02123566610653, 4.329945886052444],
+  [-72.02102108938534, 4.329988678906903],
+  [-72.02003403646786, 4.329753318177450],
+  [-72.01848908407528, 4.329603543129691],
+  [-72.01829596502621, 4.329582146691876],
+  [-72.01656862242062, 4.328672797525615],
+  [-72.01685830099423, 4.326244294986618],
+  [-72.01699704976303, 4.325322370602150],
+  [-72.01762468667252, 4.324659076998467],
+  [-72.01774806828720, 4.324616283842795],
+  [-72.01786608548386, 4.324659076998467],
+  [-72.01965780110581, 4.325525637880559],
+  [-72.01980264039261, 4.325616573224313],
+  [-72.02000648827774, 4.325718206830860],
+  [-72.02018351407273, 4.325793094742748],
+  [-72.02030689568741, 4.325916124867642],
+  [-72.02041954846604, 4.326097995450447],
+  [-72.02046782822830, 4.326124741120704],
+  [-72.02074141354782, 4.326172883324792],
+  [-72.02128858418686, 4.326199628992403],
+  [-72.02208251805527, 4.325456099080927],
+  [-72.02527036942277, 4.327000978587103]
+]]);
+var AOI    = Area_Total.difference({ right: Lote_Casa, maxError: 1 });
+var parcel = AOI.bounds();
+
+Map.centerObject(AOI, 14);
+Map.addLayer(AOI, {color: '0080ff', opacity: 0.4}, 'AOI — Finca sin Casa');
+
+// ── Función clave: construye ImageCollection desde un Folder ──────────────
+// Lee los assets del folder con listAssets(), los convierte a ee.Image
+// y los empaqueta en una ImageCollection usando ee.ImageCollection(list)
+function folderToImageCollection(folderPath) {
+  // listAssets devuelve un objeto JS con campo 'assets' (array de {id, type})
+  var assets   = ee.data.listAssets(folderPath);
+  var assetIds = assets['assets'].map(function(a) { return a['id']; });
+  var imgList  = assetIds.map(function(id) { return ee.Image(id); });
+  return ee.ImageCollection(imgList);
+}
+
+// ── Loop por variable ─────────────────────────────────────────────────────
+for (var v = 0; v < vegIndices.length; v++) {
+  (function(vegIdx) {
+
+    var folderPath = ASSET_FOLDER + '/GF_' + vegIdx + '_2024';
+
+    // Construye la colección desde el Folder (no desde ImageCollection)
+    var gapfilledCol = folderToImageCollection(folderPath).map(addDoy);
+
+    print('── ' + vegIdx + ' · Imágenes gap-filled cargadas:', gapfilledCol.size());
+
+    // Calcula métricas LSP
+    var LSPmetrics = get_Double_Logistic_Params(gapfilledCol, 'gapfilled', 0.3);
+
+    // Visualiza
+    ['sos', 'eos', 'pos', 'los'].forEach(function(lsp) {
+      Map.addLayer(
+        LSPmetrics.select(lsp).clip(AOI),
+        lspVis,
+        vegIdx + ' — ' + lsp.toUpperCase() + ' 2024'
+      );
+    });
+
+    print('Métricas LSP para ' + vegIdx + ':', LSPmetrics.bandNames());
+
+    // Export
+    Export.image.toAsset({
+      image:       LSPmetrics.select(['sos', 'eos', 'pos', 'los']).clip(AOI),
+      description: 'LSP_' + vegIdx + '_FincaLaEsperanza_2024',
+      assetId:     ASSET_FOLDER + '/LSP_' + vegIdx + '_2024',
+      scale:       20,
+      region:      parcel,
+      crs:         'EPSG:4326',
+      maxPixels:   1e13
+    });
+
+    print('✅ ' + vegIdx + ' — Task LSP lista en panel Tasks');
+
+  })(vegIndices[v]);
+}
+
+print('👉 Ve a Tasks → RUN ALL');
+```
+
+
+</details>
+
+
+## code/a_descargar_GEE.py
+
+<details>
+<summary>Python: code/a_descargar_GEE.py</summary>
+
+
+```python
+# ============================================================
+# Script a: Descarga de datos GEE imágenes descargadas
+# ============================================================
+
+import ee
+import geemap
+import os
+
+# ─── AUTENTICACIÓN ───────────────────────────────────────────────────────────
+ee.Initialize(project='wide-origin-466923-d8')
+
+BASE_DIR = os.path.expanduser("~/GEE_Downloads")
+os.makedirs(BASE_DIR, exist_ok=True)
+
+PROJECT = "projects/wide-origin-466923-d8/assets"
+
+IMAGE_COLLECTIONS = [
+    (f"{PROJECT}/GPR_LAI_2024",    "GPR_LAI_2024"),
+    (f"{PROJECT}/GF_LAI_2024",     "GF_LAI_2024"),
+    (f"{PROJECT}/GPR_FVC_2024",    "GPR_FVC_2024"),
+    (f"{PROJECT}/GF_FVC_2024",     "GF_FVC_2024"),
+    (f"{PROJECT}/GPR_laiCab_2024", "GPR_laiCab_2024"),
+    (f"{PROJECT}/GF_laiCab_2024",  "GF_laiCab_2024"),
+]
+
+SINGLE_IMAGES = [
+    (f"{PROJECT}/LSP_LAI_2024",    "LSP_LAI_2024.tif"),
+    (f"{PROJECT}/LSP_FVC_2024",    "LSP_FVC_2024.tif"),
+    (f"{PROJECT}/LSP_laiCab_2024", "LSP_laiCab_2024.tif"),
+]
+
+# ─── FUNCIÓN: Escala y CRS nativos ───────────────────────────────────────────
+def get_native_projection(image: ee.Image):
+    proj  = image.select(0).projection()
+    scale = proj.nominalScale().getInfo()
+    crs   = proj.crs().getInfo()
+    return scale, crs
+
+# ─── FUNCIÓN CLAVE: Listar assets dentro de una carpeta/IndexedFolder ────────
+def list_images_in_folder(folder_asset_path: str) -> list[dict]:
+    """
+    Usa ee.data.listAssets() para obtener todos los assets (imágenes)
+    dentro de una carpeta, independientemente de si es ImageCollection
+    o IndexedFolder.
+    Maneja paginación automática con nextPageToken.
+    """
+    assets = []
+    page_token = None
+
+    while True:
+        params = {"parent": folder_asset_path}
+        if page_token:
+            params["pageToken"] = page_token
+
+        response = ee.data.listAssets(params)
+        assets.extend(response.get("assets", []))
+
+        page_token = response.get("nextPageToken")
+        if not page_token:
+            break
+
+    return assets
+
+# ─── DESCARGA DE CARPETAS (IndexedFolder o ImageCollection) ──────────────────
+def download_collection(asset_path: str, folder_name: str):
+    out_dir = os.path.join(BASE_DIR, folder_name)
+    os.makedirs(out_dir, exist_ok=True)
+
+    # ← CAMBIO CLAVE: listar con listAssets en vez de ee.ImageCollection
+    asset_list = list_images_in_folder(asset_path)
+    n = len(asset_list)
+    print(f"\n📦 {folder_name}  →  {n} imágenes encontradas")
+
+    if n == 0:
+        print(f"  ⚠️  Carpeta vacía o sin acceso: {asset_path}")
+        return
+
+    for i, asset in enumerate(asset_list):
+        img_id   = asset["name"].split("/")[-1]   # último segmento del path
+        filename = os.path.join(out_dir, f"{img_id}.tif")
+
+        if os.path.exists(filename):
+            print(f"  ⏭  Ya existe: {img_id}.tif — omitiendo")
+            continue
+
+        # Cargar imagen por su path completo
+        img = ee.Image(asset["name"])
+
+        scale, crs = get_native_projection(img)
+        region     = img.geometry().bounds()
+
+        print(f"  ⬇  [{i+1}/{n}] {img_id}  (scale={scale:.1f}m, CRS={crs})")
+        try:
+            geemap.ee_export_image(
+                img,
+                filename=filename,
+                scale=scale,
+                crs=crs,
+                region=region,
+                file_per_band=False,
+            )
+        except Exception as e:
+            print(f"  ❌ Error en {img_id}: {e}")
+
+# ─── DESCARGA DE IMÁGENES LSP (multi-banda) ───────────────────────────────────
+def download_single_image(asset_path: str, filename: str):
+    out_path = os.path.join(BASE_DIR, filename)
+
+    if os.path.exists(out_path):
+        print(f"  ⏭  Ya existe: {filename} — omitiendo")
+        return
+
+    img        = ee.Image(asset_path)
+    scale, crs = get_native_projection(img)
+    region     = img.geometry().bounds()
+    band_names = img.bandNames().getInfo()
+
+    print(f"\n🗺  {filename}  →  bandas: {band_names}  (scale={scale:.1f}m, CRS={crs})")
+    try:
+        geemap.ee_export_image(
+            img,
+            filename=out_path,
+            scale=scale,
+            crs=crs,
+            region=region,
+            file_per_band=False,
+        )
+        print(f"  ✅ Descargado: {filename}")
+    except Exception as e:
+        print(f"  ❌ Error en {filename}: {e}")
+
+# ─── MAIN ─────────────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    print("=" * 60)
+    print("  GEE → Disco Local  |  Proyecto: wide-origin-466923-d8")
+    print("=" * 60)
+
+    for asset_path, folder_name in IMAGE_COLLECTIONS:
+        download_collection(asset_path, folder_name)
+
+    print("\n─── Imágenes LSP (multi-banda) ───")
+    for asset_path, filename in SINGLE_IMAGES:
+        download_single_image(asset_path, filename)
+
+    print("\n✅ ¡Descarga completa!")
+    print(f"   Archivos en: {BASE_DIR}")
+```
+
+
+</details>
+
+
+## code/b_calidad.py
+
+<details>
+<summary>Python: code/b_calidad.py</summary>
+
+
+```python
+# ============================================================
+# Script b: Caracterización de calidad de imágenes descargadas
+# ============================================================
+import os, re
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import rasterio
+from datetime import datetime
+import warnings
+warnings.filterwarnings("ignore")
+
+BASE_DIR   = os.path.expanduser("~/GEE_Downloads")
+OUTPUT_DIR = os.path.expanduser("~/analisis_gulupa/calidad")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+VARIABLES = ["LAI", "FVC", "laiCab"]
+STEPS     = ["GPR", "GF"]
+
+def parse_date(filename):
+    base = os.path.splitext(os.path.basename(filename))[0]
+    m = re.search(r"(\d{4})-(\d{2})-(\d{2})", base)
+    if m: return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    m = re.search(r"(\d{8})", base)
+    if m:
+        s = m.group(1)
+        return datetime(int(s[:4]), int(s[4:6]), int(s[6:8]))
+    return None
+def quality_metrics(filepath):
+    """Calcula métricas de calidad para un GeoTIFF."""
+    with rasterio.open(filepath) as src:
+        data   = src.read(1).astype(np.float32)
+        nodata = src.nodata
+        meta   = {
+            "width":      src.width,
+            "height":     src.height,
+            "crs":        str(src.crs),
+            "resolution": abs(src.transform[0]),
+            "n_bands":    src.count,
+        }
+    if nodata is not None:
+        data[data == nodata] = np.nan
+    data[np.isneginf(data)] = np.nan   # ← LÍNEA NUEVA: elimina -inf de GEE
+    data[np.isposinf(data)] = np.nan   # ← LÍNEA NUEVA: elimina +inf de GEE
+    
+    total  = data.size
+    valids = int(np.sum(~np.isnan(data)))
+    nans   = total - valids
+
+    return {
+        **meta,
+        "total_pixels":   total,
+        "valid_pixels":   valids,
+        "nodata_pixels":  nans,
+        "coverage_%":     round(valids / total * 100, 2),  # calidad clave
+        "mean":           round(float(np.nanmean(data)), 4),
+        "std":            round(float(np.nanstd(data)), 4),
+        "min":            round(float(np.nanmin(data)), 4) if valids > 0 else np.nan,
+        "max":            round(float(np.nanmax(data)), 4) if valids > 0 else np.nan,
+        "p25":            round(float(np.nanpercentile(data, 25)), 4) if valids > 0 else np.nan,
+        "median":         round(float(np.nanpercentile(data, 50)), 4) if valids > 0 else np.nan,
+        "p75":            round(float(np.nanpercentile(data, 75)), 4) if valids > 0 else np.nan,
+        "cv_%":           round(float(np.nanstd(data) / np.nanmean(data) * 100), 2)
+                          if valids > 0 and np.nanmean(data) != 0 else np.nan,
+    }
+
+# ─── ANÁLISIS DE CALIDAD POR COLECCIÓN ───────────────────────
+all_records = []
+
+for var in VARIABLES:
+    for step in STEPS:
+        folder = os.path.join(BASE_DIR, f"{step}_{var}_2024")
+        if not os.path.isdir(folder):
+            continue
+        tifs = sorted([f for f in os.listdir(folder) if f.endswith(".tif")])
+        print(f"\n📊 {step}_{var}_2024  →  {len(tifs)} imágenes")
+
+        coverages, dates = [], []
+        for tif in tifs:
+            fpath = os.path.join(folder, tif)
+            date  = parse_date(tif)
+            try:
+                metrics = quality_metrics(fpath)
+                record  = {"variable": var, "step": step,
+                           "date": date, "filename": tif, **metrics}
+                all_records.append(record)
+                coverages.append(metrics["coverage_%"])
+                if date: dates.append(date)
+                print(f"  {tif:<35} coverage={metrics['coverage_%']:>6.1f}%  "
+                      f"mean={metrics['mean']:>8.4f}  std={metrics['std']:>7.4f}")
+            except Exception as e:
+                print(f"  ❌ Error: {tif} → {e}")
+
+        # ── Gráfico de cobertura temporal por colección ──────
+        if dates and coverages:
+            fig, ax = plt.subplots(figsize=(11, 3.5))
+            ax.bar(dates, coverages, width=5, color="#2E86AB", alpha=0.75,
+                   edgecolor="white")
+            ax.axhline(80, color="red",    linestyle="--", linewidth=1,
+                       label="Umbral 80%")
+            ax.axhline(95, color="green",  linestyle="--", linewidth=1,
+                       label="Umbral 95%")
+            ax.set_ylim(0, 105)
+            ax.set_ylabel("Cobertura válida (%)")
+            ax.set_xlabel("Fecha")
+            ax.set_title(f"Calidad de imágenes — {step}_{var}_2024",
+                         fontweight="bold")
+            ax.legend(fontsize=9)
+            ax.grid(True, axis="y", linestyle="--", alpha=0.4)
+            plt.xticks(rotation=30, ha="right")
+            plt.tight_layout()
+            out = os.path.join(OUTPUT_DIR,
+                               f"calidad_cobertura_{step}_{var}.png")
+            plt.savefig(out, dpi=180, bbox_inches="tight")
+            plt.close()
+            print(f"  💾 {out}")
+
+# ─── LSP: Calidad de imágenes multi-banda ────────────────────
+LSP_BANDS_ORDER = ["sos", "eos", "pos", "los"]
+for var in VARIABLES:
+    lsp_file = os.path.join(BASE_DIR, f"LSP_{var}_2024.tif")
+    if not os.path.exists(lsp_file):
+        continue
+    print(f"\n🗺  LSP_{var}_2024.tif")
+    with rasterio.open(lsp_file) as src:
+        for i in range(1, src.count + 1):
+            band_name = src.descriptions[i-1] or LSP_BANDS_ORDER[i-1] \
+                        if i <= len(LSP_BANDS_ORDER) else f"band_{i}"
+            arr    = src.read(i).astype(np.float32)
+            nodata = src.nodata
+            if nodata is not None:
+                arr[arr == nodata] = np.nan
+            cov = np.sum(~np.isnan(arr)) / arr.size * 100
+            print(f"  Banda {band_name:<6} → coverage={cov:.1f}%  "
+                  f"mean={np.nanmean(arr):.2f}  "
+                  f"range=[{np.nanmin(arr):.1f}, {np.nanmax(arr):.1f}]")
+
+# ─── CSV RESUMEN COMPLETO ─────────────────────────────────────
+if all_records:
+    df = pd.DataFrame(all_records)
+    df["date"] = pd.to_datetime(df["date"])
+    df = df.sort_values(["variable", "step", "date"])
+    csv_out = os.path.join(OUTPUT_DIR, "resumen_calidad_imagenes.csv")
+    df.to_csv(csv_out, index=False)
+    print(f"\n✅ CSV guardado: {csv_out}")
+
+    # ── Figura resumen: boxplot cobertura por colección ──────
+    fig, ax = plt.subplots(figsize=(12, 5))
+    groups  = [f"{step}_{var}" for var in VARIABLES for step in STEPS]
+    data_bp = []
+    labels_bp = []
+    for var in VARIABLES:
+        for step in STEPS:
+            sub = df[(df["variable"]==var) & (df["step"]==step)]["coverage_%"]
+            if len(sub):
+                data_bp.append(sub.values)
+                labels_bp.append(f"{step}\n{var}")
+
+    colors_bp = ["#2E86AB","#57A773"] * len(VARIABLES)
+    bp = ax.boxplot(data_bp, patch_artist=True,
+                    medianprops=dict(color="black", linewidth=2))
+    for patch, col in zip(bp["boxes"], colors_bp):
+        patch.set_facecolor(col)
+        patch.set_alpha(0.7)
+    ax.set_xticklabels(labels_bp, fontsize=9)
+    ax.axhline(80, color="red",  linestyle="--", linewidth=1, label="80%")
+    ax.axhline(95, color="green",linestyle="--", linewidth=1, label="95%")
+    ax.set_ylabel("Cobertura válida (%)")
+    ax.set_title("Calidad general — GPR vs GF por variable", fontweight="bold")
+    ax.legend(); ax.grid(True, axis="y", alpha=0.4)
+    plt.tight_layout()
+    plt.savefig(os.path.join(OUTPUT_DIR, "calidad_resumen_boxplot.png"),
+                dpi=180, bbox_inches="tight")
+    plt.close()
+    print("✅ Boxplot resumen guardado")
+```
+
+
+</details>
+
+
+## code/c_validacion.py
+
+<details>
+<summary>Python: code/c_validacion.py</summary>
+
+
+```python
+# ============================================================
+# Script C_v4: Validación — estilo IJRS/MDPI
+#  
+# ============================================================
+import os, re
+import numpy as np
+import pandas as pd
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import matplotlib.ticker as mticker
+from matplotlib.path import Path
+from matplotlib.patches import PathPatch
+from matplotlib.colors import Normalize
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import rasterio
+from rasterio.warp import reproject, Resampling
+from rasterio.features import geometry_mask
+from shapely.geometry import Polygon, MultiPolygon, mapping
+from shapely.ops import transform as shp_transform
+from scipy import stats
+from datetime import datetime
+import pyproj
+import warnings
+warnings.filterwarnings("ignore")
+
+BASE_DIR   = os.path.expanduser("~/GEE_Downloads")
+OUTPUT_DIR = os.path.expanduser("~/analisis_gulupa/validacion_v3")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+N_POINTS  = 100
+SEED      = 42
+VARIABLES = ["LAI", "FVC", "laiCab"]
+LABELS    = {
+    "LAI":    "LAI (m² m⁻²)",
+    "FVC":    "FVC (fracción)",
+    "laiCab": "laiCab (µg cm⁻²)",
+}
+
+CMAP_VAR = {
+    "LAI":    "YlGn",
+    "FVC":    "GnBu",
+    "laiCab": "YlOrBr",
+}
+CMAP_LABEL = {
+    "LAI":    "LAI (m² m⁻²)",
+    "FVC":    "FVC (fracción)",
+    "laiCab": "laiCab (µg cm⁻²)",
+}
+
+# ── Geometría finca (AOI = Area_Total − Lote_Casa) ───────────
+AREA_TOTAL_COORDS = [
+    (-72.02911590018898, 4.323774005392068),
+    (-72.02320164960223, 4.320341858927772),
+    (-71.99426061433154, 4.337725140154523),
+    (-71.99372417252856, 4.338110271794471),
+    (-71.99303752702075, 4.338666572705499),
+    (-71.99149257462817, 4.340207096166426),
+    (-71.99072009843188, 4.340870376132908),
+    (-71.98967671912509, 4.341426675010239),
+    (-72.00730581274610, 4.349063111509516),
+    (-72.00862576723136, 4.353153345576473),
+    (-72.01213946104087, 4.356828060080524),
+    (-72.01526010903413, 4.352303621556992),
+    (-72.01894546422060, 4.346895815199964),
+    (-72.02098296949191, 4.341000332940370),
+    (-72.02443983146695, 4.334085615058952),
+    (-72.02447201797513, 4.333775368489792),
+    (-72.02456857749966, 4.333529310775441),
+    (-72.02911590018898, 4.323774005392068),
+]
+LOTE_CASA_COORDS = [
+    (-72.02527036942277, 4.327000978587103),
+    (-72.02123566610653, 4.329945886052444),
+    (-72.02102108938534, 4.329988678906903),
+    (-72.02003403646786, 4.329753318177450),
+    (-72.01848908407528, 4.329603543129691),
+    (-72.01829596502621, 4.329582146691876),
+    (-72.01656862242062, 4.328672797525615),
+    (-72.01685830099423, 4.326244294986618),
+    (-72.01699704976303, 4.325322370602150),
+    (-72.01762468667252, 4.324659076998467),
+    (-72.01774806828720, 4.324616283842795),
+    (-72.01786608548386, 4.324659076998467),
+    (-72.01965780110581, 4.325525637880559),
+    (-72.01980264039261, 4.325616573224313),
+    (-72.02000648827774, 4.325718206830860),
+    (-72.02018351407273, 4.325793094742748),
+    (-72.02030689568741, 4.325916124867642),
+    (-72.02041954846604, 4.326097995450447),
+    (-72.02046782822830, 4.326124741120704),
+    (-72.02074141354782, 4.326172883324792),
+    (-72.02128858418686, 4.326199628992403),
+    (-72.02208251805527, 4.325456099080927),
+    (-72.02527036942277, 4.327000978587103),
+]
+_POLY_TOTAL = Polygon(AREA_TOTAL_COORDS)
+_POLY_CASA  = Polygon(LOTE_CASA_COORDS)
+FINCA_POLY  = _POLY_TOTAL.difference(_POLY_CASA)
+_minx, _miny, _maxx, _maxy = FINCA_POLY.bounds
+_mx = (_maxx - _minx) * 0.04
+_my = (_maxy - _miny) * 0.04
+FINCA_XLIM = (_minx - _mx, _maxx + _mx)
+FINCA_YLIM = (_miny - _my, _maxy + _my)
+
+COLORS = {
+    "GPR": "#1B4F72",
+    "GF":  "#C0392B",
+    "reg": "#E67E22",
+    "pts": "#2E86AB",
+}
+
+# ── Estilo global artículo ───────────────────────────────────
+plt.rcParams.update({
+    "font.family":        "serif",
+    "font.serif":         ["Times New Roman", "DejaVu Serif"],
+    "font.size":          11,
+    "axes.titlesize":     12,
+    "axes.labelsize":     11,
+    "xtick.labelsize":    10,
+    "ytick.labelsize":    10,
+    "legend.fontsize":    10,
+    "legend.framealpha":  0.9,
+    "legend.edgecolor":   "0.6",
+    "figure.dpi":         150,
+    "savefig.dpi":        300,
+    "axes.linewidth":     0.6,
+    "xtick.major.width":  0.5,
+    "ytick.major.width":  0.5,
+    "xtick.direction":    "in",
+    "ytick.direction":    "in",
+    "axes.spines.top":    False,
+    "axes.spines.right":  False,
+    "grid.linewidth":     0.5,
+    "grid.alpha":         0.35,
+    "lines.linewidth":    1.5,
+})
+
+
+# ─── UTILIDADES ─────────────────────────────────────────────
+
+def parse_date(filename):
+    base = os.path.splitext(os.path.basename(filename))[0]
+    m = re.search(r"(\d{4})-(\d{2})-(\d{2})", base)
+    if m: return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    m = re.search(r"(\d{8})", base)
+    if m:
+        s = m.group(1)
+        return datetime(int(s[:4]), int(s[4:6]), int(s[6:8]))
+    return None
+
+def clean_array(arr, nodata=None):
+    r = arr.astype(np.float64)
+    if nodata is not None:
+        r[r == nodata] = np.nan
+    r[~np.isfinite(r)] = np.nan
+    return r
+
+def read_clean(filepath, band=1):
+    with rasterio.open(filepath) as src:
+        raw = src.read(band).astype(np.float64)
+        return clean_array(raw, src.nodata), src.transform, src.crs, src.profile
+
+def reproject_to_match(src_path, ref_path):
+    with rasterio.open(ref_path) as ref:
+        dst_crs, dst_tf = ref.crs, ref.transform
+        dst_h, dst_w    = ref.height, ref.width
+    with rasterio.open(src_path) as src:
+        if src.crs == dst_crs and src.width == dst_w and src.height == dst_h:
+            return clean_array(src.read(1).astype(np.float64), src.nodata)
+        src_data = src.read(1).astype(np.float64)
+        dst = np.full((dst_h, dst_w), np.nan, dtype=np.float64)
+        reproject(
+            source=src_data, destination=dst,
+            src_transform=src.transform, src_crs=src.crs,
+            dst_transform=dst_tf, dst_crs=dst_crs,
+            resampling=Resampling.bilinear,
+            src_nodata=src.nodata if src.nodata else -9999,
+            dst_nodata=np.nan,
+        )
+    return clean_array(dst)
+
+def best_reference_tif(folder, max_check=15):
+    tifs = sorted([f for f in os.listdir(folder) if f.endswith(".tif")])
+    sizes = {}
+    for t in tifs[:max_check]:
+        with rasterio.open(os.path.join(folder, t)) as src:
+            key = (src.width, src.height)
+            sizes[key] = sizes.get(key, 0) + 1
+    modal_size = max(sizes, key=sizes.get)
+    best_n, best_fp = 0, None
+    for t in tifs[:max_check]:
+        fp = os.path.join(folder, t)
+        with rasterio.open(fp) as src:
+            if (src.width, src.height) != modal_size:
+                continue
+            arr = clean_array(src.read(1).astype(np.float64), src.nodata)
+        n_valid = int(np.sum(np.isfinite(arr) & (arr > 0)))
+        if n_valid > best_n:
+            best_n, best_fp = n_valid, fp
+    print(f"    Ref. escogida : {os.path.basename(best_fp)}")
+    print(f"    Píxeles válidos en ref: {best_n}")
+    if best_n < N_POINTS:
+        print(f"    ⚠  Solo {best_n} px válidos < {N_POINTS}.")
+        print(f"       Aumenta max_check o revisa el TIF de referencia.")
+    return best_fp
+
+
+# ─── PASO 1: Generar puntos ─────────────────────────────────
+
+def generate_points(ref_tif, n=100, seed=42):
+    arr, transform, crs, _ = read_clean(ref_tif)
+    valid = np.isfinite(arr) & (arr > 0)
+    rows, cols = np.where(valid)
+    rng = np.random.default_rng(seed)
+    if len(rows) < n:
+        print(f"  ⚠  Solo {len(rows)} px válidos → n={len(rows)}")
+        n = len(rows)
+    idx    = rng.choice(len(rows), size=n, replace=False)
+    pts    = np.column_stack([rows[idx], cols[idx]])
+    xs, ys = [], []
+    for r, c in pts:
+        x, y = rasterio.transform.xy(transform, int(r), int(c))
+        xs.append(x); ys.append(y)
+    return pts, np.array(xs), np.array(ys), crs
+
+
+# ─── PASO 2: Extraer valores POR FECHA ──────────────────────
+
+def extract_values(folder, points, ref_tif=None):
+    tifs = sorted([f for f in os.listdir(folder) if f.endswith(".tif")])
+    dates, matrix = [], []
+    for tif in tifs:
+        date = parse_date(tif)
+        if date is None: continue
+        fpath = os.path.join(folder, tif)
+        data  = reproject_to_match(fpath, ref_tif) if ref_tif else \
+                read_clean(fpath)[0]
+        h, w  = data.shape
+        vals  = [data[int(np.clip(r,0,h-1)), int(np.clip(c,0,w-1))]
+                 for r, c in points]
+        dates.append(date)
+        matrix.append(vals)
+    return dates, np.array(matrix, dtype=np.float64)
+
+
+# ─── PASO 3: Métricas ───────────────────────────────────────
+
+def metrics_per_date(dates_gpr, vals_gpr, dates_gf, vals_gf):
+    records = []
+    for i, d_gpr in enumerate(dates_gpr):
+        best_j, best_diff = None, 999
+        for j, d_gf in enumerate(dates_gf):
+            diff = abs((d_gf - d_gpr).days)
+            if diff < best_diff:
+                best_diff, best_j = diff, j
+        if best_diff > 5 or best_j is None:
+            continue
+        yt = vals_gpr[i];  yp = vals_gf[best_j]
+        mask = np.isfinite(yt) & np.isfinite(yp) & (yt > 0) & (yp > 0)
+        yt_m, yp_m = yt[mask], yp[mask]
+        n_valid = len(yt_m)
+        if n_valid < 5:
+            continue
+        residuals = yp_m - yt_m
+        rmse   = float(np.sqrt(np.mean(residuals**2)))
+        mae    = float(np.mean(np.abs(residuals)))
+        bias   = float(np.mean(residuals))
+        ss_res = float(np.sum(residuals**2))
+        ss_tot = float(np.sum((yt_m - yt_m.mean())**2))
+        r2     = 1 - ss_res/ss_tot if ss_tot > 0 else np.nan
+        sl, ic, r_val, _, _ = stats.linregress(yt_m, yp_m) \
+                               if n_valid >= 3 else (np.nan,)*5
+        records.append({
+            "date":      d_gpr,
+            "n_valid":   n_valid,
+            "RMSE":      round(rmse, 4),
+            "MAE":       round(mae,  4),
+            "R2":        round(float(r2), 4),
+            "bias":      round(bias, 4),
+            "slope":     round(float(sl), 4),
+            "intercept": round(float(ic), 4),
+            "pearson_r": round(float(r_val), 4),
+        })
+    return pd.DataFrame(records)
+
+def metrics_global(df_per_date):
+    cols = ["RMSE", "MAE", "R2", "bias", "pearson_r"]
+    return df_per_date[cols].agg(["mean","std","median"]).round(4)
+
+
+# ─── HELPERS MAPA ───────────────────────────────────────────
+
+def _shapely_to_mpl_patch(geom, **kwargs):
+    def _ring_codes(ring):
+        v = list(ring.coords)
+        c = [Path.MOVETO] + [Path.LINETO]*(len(v)-2) + [Path.CLOSEPOLY]
+        return v, c
+    all_v, all_c = [], []
+    polys = geom.geoms if geom.geom_type == "MultiPolygon" else [geom]
+    for poly in polys:
+        v, c = _ring_codes(poly.exterior)
+        all_v += v;  all_c += c
+        for hole in poly.interiors:
+            v, c = _ring_codes(hole)
+            all_v += v;  all_c += c
+    return PathPatch(Path(all_v, all_c), **kwargs)
+
+def _mask_raster_to_finca(img, transform, crs_wkt):
+    try:
+        src_crs = pyproj.CRS.from_wkt(crs_wkt)
+        wgs84   = pyproj.CRS.from_epsg(4326)
+        if not src_crs.equals(wgs84):
+            project    = pyproj.Transformer.from_crs(
+                wgs84, src_crs, always_xy=True).transform
+            finca_proj = shp_transform(project, FINCA_POLY)
+        else:
+            finca_proj = FINCA_POLY
+        msk = geometry_mask(
+            [mapping(finca_proj)],
+            out_shape=img.shape,
+            transform=transform,
+            invert=True,
+        )
+        out = img.copy()
+        out[~msk] = np.nan
+        return out
+    except Exception as e:
+        print(f"    ⚠ _mask_raster_to_finca falló ({e})")
+        return img
+
+
+# ─── FIGURA A: Panel Scatter + Mapa ─────────────────────────
+
+def _annotate_metrics(ax, m, n, loc="upper left"):
+    txt = (
+        f"$n$ = {n}\n"
+        f"$R^2$ = {m['R2']:.3f}\n"
+        f"RECM  = {m['RMSE']:.3f}\n"
+        f"EAM   = {m['MAE']:.3f}\n"
+        f"Sesgo = {m['bias']:.3f}\n"
+        f"$r$   = {m['pearson_r']:.3f}\n"
+        f"Pend. = {m['slope']:.3f}\n"
+        f"Inter.= {m['intercept']:.3f}"
+    )
+    props = dict(boxstyle="round,pad=0.45", facecolor="white",
+                 edgecolor="0.6", alpha=0.92, linewidth=0.6)
+    x_pos = 0.03 if loc == "upper left" else 0.97
+    ha    = "left" if loc == "upper left" else "right"
+    ax.text(x_pos, 0.97, txt, transform=ax.transAxes,
+            fontsize=9.5, verticalalignment="top",
+            horizontalalignment=ha, bbox=props,
+            family="serif")
+
+def _draw_map_points(ax, xs, ys, ref_tif, var):
+    with rasterio.open(ref_tif) as src:
+        img   = src.read(1).astype(np.float64)
+        img   = clean_array(img, src.nodata)
+        tf    = src.transform
+        crs_w = src.crs.to_wkt()
+        left  = tf.c;  top   = tf.f
+        right = left + tf.a * src.width
+        bot   = top  + tf.e * src.height
+
+    src_crs_obj  = pyproj.CRS.from_wkt(crs_w)
+    is_geographic = src_crs_obj.is_geographic
+
+    img_masked = _mask_raster_to_finca(img, tf, crs_w)
+    p2,  p98   = np.nanpercentile(img_masked, 2), np.nanpercentile(img_masked, 98)
+    img_clip   = np.clip(img_masked, p2, p98)
+
+    cmap = CMAP_VAR.get(var, "YlGn")
+    norm = Normalize(vmin=p2, vmax=p98)
+    im   = ax.imshow(img_clip, extent=[left, right, bot, top],
+                     origin="upper", cmap=cmap, norm=norm,
+                     alpha=0.88, aspect="auto", zorder=1)
+
+    divider = make_axes_locatable(ax)
+    cax     = divider.append_axes("right", size="4%", pad=0.06)
+    cb      = plt.colorbar(im, cax=cax)
+    cb.set_label(CMAP_LABEL.get(var, var), fontsize=10, labelpad=4)
+    cb.ax.tick_params(labelsize=9)
+    cb.outline.set_linewidth(0.5)
+
+    if is_geographic:
+        ax.set_xlim(FINCA_XLIM);  ax.set_ylim(FINCA_YLIM)
+        xs_plot, ys_plot = xs, ys
+        finca_geom       = FINCA_POLY
+        xlabel = "Longitud (°)";  ylabel = "Latitud (°)"
+        fmt_x  = lambda v, _: f"{v:.4f}°"
+        fmt_y  = lambda v, _: f"{v:.4f}°"
+    else:
+        wgs84   = pyproj.CRS.from_epsg(4326)
+        project = pyproj.Transformer.from_crs(
+            wgs84, src_crs_obj, always_xy=True).transform
+        finca_geom = shp_transform(project, FINCA_POLY)
+        fx0, fy0, fx1, fy1 = finca_geom.bounds
+        mx = (fx1-fx0)*0.04;  my = (fy1-fy0)*0.04
+        ax.set_xlim(fx0-mx, fx1+mx);  ax.set_ylim(fy0-my, fy1+my)
+        xs_plot, ys_plot = xs, ys
+        xlabel = "Este (m)";  ylabel = "Norte (m)"
+        fmt_x  = lambda v, _: f"{v/1e3:.1f}k"
+        fmt_y  = lambda v, _: f"{v/1e3:.1f}k"
+
+    patch = _shapely_to_mpl_patch(
+        finca_geom, facecolor="none",
+        edgecolor="#333333", linewidth=0.9, zorder=4)
+    ax.add_patch(patch)
+
+    ax.scatter(xs_plot, ys_plot, s=18, c=COLORS["pts"],
+               edgecolors="white", linewidths=0.4, zorder=5,
+               label=f"Puntos de validación ($n$={len(xs_plot)})")
+
+    ax.set_xlabel(xlabel, fontsize=10.5, labelpad=4)
+    ax.set_ylabel(ylabel, fontsize=10.5, labelpad=4)
+    ax.xaxis.set_major_formatter(mticker.FuncFormatter(fmt_x))
+    ax.yaxis.set_major_formatter(mticker.FuncFormatter(fmt_y))
+    ax.tick_params(labelsize=9.5)
+    ax.set_facecolor("white")
+
+    leg = ax.legend(fontsize=10, loc="lower right",
+                    framealpha=0.9, edgecolor="0.6",
+                    handletextpad=0.3, borderpad=0.4)
+    leg.get_frame().set_linewidth(0.5)
+    ax.set_title(f"Distribución espacial — {var}",
+                 fontsize=11, pad=4)
+
+
+def plot_panel_scatter_maps(all_data, ref_tifs):
+    nrows = len(VARIABLES)
+    fig   = plt.figure(figsize=(15, 4.6 * nrows))
+
+    fig.suptitle(
+        "Validación cruzada GPR vs. gap-filling (GF): diagramas de dispersión "
+        "y distribución espacial de puntos de muestreo para LAI, FVC y laiCab",
+        fontsize=12, fontweight="bold", y=0.995,
+    )
+    fig.subplots_adjust(
+        left=0.08,  right=0.95,
+        top=0.955,  bottom=0.05,
+        hspace=0.30,
+        wspace=0.35,
+    )
+    outer = gridspec.GridSpec(
+        nrows, 2, figure=fig,
+        width_ratios=[1, 1.15],
+        hspace=0.30, wspace=0.35,
+    )
+    panel_letters = list("abcdef")
+    letter_idx    = 0
+
+    for row_i, var in enumerate(VARIABLES):
+        if var not in all_data:
+            continue
+
+        d          = all_data[var]
+        dates_gpr  = d["dates_gpr"];  vals_gpr  = d["vals_gpr"]
+        dates_gf   = d["dates_gf"];   vals_gf   = d["vals_gf"]
+        df_metrics = d["df_metrics"]; xs = d["xs"]; ys = d["ys"]
+
+        ax_sc = fig.add_subplot(outer[row_i, 0])
+
+        if df_metrics.empty:
+            ax_sc.text(0.5, 0.5, "Sin datos",
+                       transform=ax_sc.transAxes,
+                       ha="center", va="center")
+        else:
+            best_row  = df_metrics.loc[df_metrics["R2"].idxmax()]
+            best_date = best_row["date"]
+
+            i_gpr = next((i for i, d_ in enumerate(dates_gpr)
+                          if d_ == best_date), None)
+            best_j, best_diff = None, 999
+            for j, d_gf in enumerate(dates_gf):
+                diff = abs((d_gf - best_date).days)
+                if diff < best_diff:
+                    best_diff, best_j = diff, j
+
+            yt = vals_gpr[i_gpr];  yp = vals_gf[best_j]
+            mask = np.isfinite(yt) & np.isfinite(yp) & (yt>0) & (yp>0)
+            yt_m, yp_m = yt[mask], yp[mask]
+
+            lims = [min(yt_m.min(), yp_m.min()) * 0.92,
+                    max(yt_m.max(), yp_m.max()) * 1.08]
+
+            ax_sc.scatter(yt_m, yp_m, s=32, alpha=0.60,
+                          color=COLORS["pts"], edgecolors="white",
+                          linewidths=0.35, zorder=3)
+            ax_sc.plot(lims, lims, color="black", lw=1.0,
+                       linestyle="--", zorder=2, label="Línea 1:1")
+            if np.isfinite(best_row["slope"]):
+                x_f = np.linspace(lims[0], lims[1], 300)
+                ax_sc.plot(x_f,
+                           best_row["slope"]*x_f + best_row["intercept"],
+                           color=COLORS["reg"], lw=1.6, zorder=4,
+                           label="Regresión")
+
+            ax_sc.set_xlim(lims);  ax_sc.set_ylim(lims)
+            ax_sc.set_xlabel(f"{var} — Referencia GPR (S2 directo)",
+                             fontsize=10.5, labelpad=4)
+            ax_sc.set_ylabel(f"{var} — Estimación GF (gap-filled)",
+                             fontsize=10.5, labelpad=4)
+            ax_sc.set_title(f"Validación dispersión — {var}",
+                            fontsize=11, fontweight="bold", pad=4)
+            ax_sc.legend(fontsize=10, loc="lower right",
+                         framealpha=0.9, edgecolor="0.6",
+                         handletextpad=0.4)
+            ax_sc.grid(True, linestyle="--", alpha=0.35)
+            _annotate_metrics(ax_sc, best_row, len(yt_m))
+
+        ax_sc.text(-0.14, 1.04,
+                   f"({panel_letters[letter_idx]})",
+                   transform=ax_sc.transAxes,
+                   fontsize=12, fontweight="bold", va="top")
+        letter_idx += 1
+
+        ax_mp = fig.add_subplot(outer[row_i, 1])
+        ref   = ref_tifs.get(var)
+        if ref and xs is not None and len(xs) > 0:
+            _draw_map_points(ax_mp, xs, ys, ref, var)
+        else:
+            ax_mp.text(0.5, 0.5, "Mapa no disponible",
+                       transform=ax_mp.transAxes,
+                       ha="center", va="center")
+
+        ax_mp.text(-0.12, 1.04,
+                   f"({panel_letters[letter_idx]})",
+                   transform=ax_mp.transAxes,
+                   fontsize=12, fontweight="bold", va="top")
+        letter_idx += 1
+
+    out = os.path.join(OUTPUT_DIR, "FigA_scatter_maps.png")
+    fig.savefig(out, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  Figura A guardada: {out}")
+
+
+# ─── FIGURA 2: Serie temporal con percentiles ───────────────
+
+def plot_temporal_percentiles(dates_gpr, vals_gpr,
+                               dates_gf,  vals_gf, var):
+    def pstats(matrix):
+        m = matrix.copy()
+        m[~np.isfinite(m) | (m <= 0)] = np.nan
+        return (np.nanmedian(m, axis=1),
+                np.nanpercentile(m, 25, axis=1),
+                np.nanpercentile(m, 75, axis=1))
+
+    med_gpr, p25_gpr, p75_gpr = pstats(vals_gpr)
+    med_gf,  p25_gf,  p75_gf  = pstats(vals_gf)
+
+    fig, ax = plt.subplots(figsize=(13, 4.8))
+    fig.subplots_adjust(left=0.09, right=0.97, top=0.90, bottom=0.16)
+
+    ax.fill_between(dates_gf, p25_gf, p75_gf,
+                    alpha=0.20, color=COLORS["GF"],
+                    label="GF IQR (P25–P75)")
+    ax.plot(dates_gf, med_gf, color=COLORS["GF"], lw=2.0,
+            label="GF mediana (gap-filled)")
+    ax.fill_between(dates_gpr, p25_gpr, p75_gpr,
+                    alpha=0.15, color=COLORS["GPR"])
+    ax.plot(dates_gpr, med_gpr, "o-", color=COLORS["GPR"],
+            markersize=5, lw=1.4,
+            label="GPR mediana (S2 directo)")
+
+    ax.set_xlabel("Fecha (2024)", fontsize=11, labelpad=6)
+    ax.set_ylabel(LABELS[var], fontsize=11, labelpad=6)
+    ax.set_title(
+        f"Serie temporal — {var}  "
+        f"(mediana ± IQR,  $n$ = {N_POINTS} puntos aleatorios)",
+        fontsize=12, fontweight="bold", pad=8,
+    )
+    ax.legend(fontsize=10, loc="upper left",
+              bbox_to_anchor=(0.01, 0.99),
+              framealpha=0.9, edgecolor="0.6", ncol=1)
+    ax.grid(True, linestyle="--", alpha=0.35)
+    plt.xticks(rotation=30, ha="right", fontsize=10)
+
+    out = os.path.join(OUTPUT_DIR, f"temporal_percentiles_{var}.png")
+    fig.savefig(out, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"  Serie temporal guardada: {out}")
+
+
+# ─── FIGURA 3: Métricas por fecha ───────────────────────────
+
+def plot_metrics_over_time(df_metrics, var):
+    if df_metrics.empty: return
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(13, 6.5), sharex=True)
+    fig.subplots_adjust(
+        left=0.09, right=0.97,
+        top=0.92,  bottom=0.12,
+        hspace=0.18,
+    )
+
+    ax1.plot(df_metrics["date"], df_metrics["RMSE"],
+             "o-", color=COLORS["GF"],
+             markersize=4, lw=1.5, label="RECM")
+    ax1.plot(df_metrics["date"], df_metrics["MAE"],
+             "s--", color="#57A773",
+             markersize=4, lw=1.2, label="EAM")
+    ax1.set_ylabel(f"Error  ({LABELS[var]})", fontsize=11, labelpad=6)
+    ax1.legend(fontsize=10, loc="upper right",
+               framealpha=0.9, edgecolor="0.6")
+    ax1.grid(True, linestyle="--", alpha=0.35)
+    ax1.set_title(
+        f"Métricas de validación por fecha — {var}  (n = 100 puntos / fecha)",
+        fontsize=12, fontweight="bold", pad=8,
+    )
+
+    ax2.plot(df_metrics["date"], df_metrics["R2"],
+             "o-", color=COLORS["GPR"],
+             markersize=4, lw=1.5, label="$R^2$")
+    ax2.axhline(0,   color="red",   linestyle="--", lw=1, alpha=0.6)
+    ax2.axhline(0.7, color="green", linestyle="--", lw=1,
+                alpha=0.6, label="$R^2 = 0{,}70$")
+    ax2.set_ylabel("$R^2$", fontsize=11, labelpad=6)
+    ax2.set_xlabel("Fecha (2024)", fontsize=11, labelpad=6)
+    ax2.legend(fontsize=10, loc="lower right",
+               framealpha=0.9, edgecolor="0.6")
+    ax2.grid(True, linestyle="--", alpha=0.35)
+    plt.xticks(rotation=30, ha="right", fontsize=10)
+
+    out = os.path.join(OUTPUT_DIR, f"metricas_temporal_{var}.png")
+    fig.savefig(out, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"  Métricas temporales guardadas: {out}")
+
+
+# ─── EJECUCIÓN PRINCIPAL ────────────────────────────────────
+
+if __name__ == "__main__":
+    print("=" * 60)
+    print("  Validación v4 — n=100 | IJRS/MDPI | Times New Roman")
+    print("=" * 60)
+
+    summary_global = []
+    all_data = {}
+    ref_tifs = {}
+
+    for var in VARIABLES:
+        print(f"\n{'─'*55}\n  Variable: {var}\n{'─'*55}")
+
+        folder_gpr = os.path.join(BASE_DIR, f"GPR_{var}_2024")
+        folder_gf  = os.path.join(BASE_DIR, f"GF_{var}_2024")
+
+        if not os.path.isdir(folder_gpr) or not os.path.isdir(folder_gf):
+            print(f"  ⚠  Carpetas no encontradas"); continue
+
+        ref_tif = best_reference_tif(folder_gpr)
+        ref_tifs[var] = ref_tif
+
+        points, xs, ys, crs = generate_points(ref_tif, n=N_POINTS, seed=SEED)
+        pd.DataFrame({"punto_id": range(len(points)),
+                      "fila": points[:,0], "col": points[:,1],
+                      "lon": xs, "lat": ys})\
+          .to_csv(os.path.join(OUTPUT_DIR, f"puntos_100_{var}.csv"),
+                  index=False)
+
+        print("  Extrayendo GPR...")
+        dates_gpr, vals_gpr = extract_values(folder_gpr, points)
+        print("  Extrayendo GF (reproyectando)...")
+        dates_gf, vals_gf = extract_values(folder_gf, points,
+                                            ref_tif=ref_tif)
+
+        df_m = metrics_per_date(dates_gpr, vals_gpr, dates_gf, vals_gf)
+        df_m.to_csv(os.path.join(OUTPUT_DIR,
+                                  f"metricas_por_fecha_{var}.csv"),
+                    index=False)
+
+        gsum = metrics_global(df_m)
+        print(f"\n  Resumen global {var}:")
+        print(gsum.to_string())
+        summary_global.append({
+            "variable": var,
+            **{f"{c}_media": gsum.loc["mean", c] for c in gsum.columns},
+            **{f"{c}_de":    gsum.loc["std",  c] for c in gsum.columns},
+        })
+
+        all_data[var] = dict(
+            dates_gpr=dates_gpr, vals_gpr=vals_gpr,
+            dates_gf=dates_gf,   vals_gf=vals_gf,
+            df_metrics=df_m,     xs=xs, ys=ys,
+        )
+
+        plot_temporal_percentiles(dates_gpr, vals_gpr,
+                                   dates_gf,  vals_gf, var)
+        plot_metrics_over_time(df_m, var)
+
+    if all_data:
+        plot_panel_scatter_maps(all_data, ref_tifs)
+
+    pd.DataFrame(summary_global)\
+      .to_csv(os.path.join(OUTPUT_DIR, "resumen_global_v4.csv"),
+              index=False)
+    print(f"\n✅ Todo guardado en: {OUTPUT_DIR}")
+```
+
+
+</details>
+
+
+## code/d_graficas_articulo5.py
+
+<details>
+<summary>Python: code/d_graficas_articulo5.py</summary>
+
+
+```python
+# ============================================================
+# Figuras faltantes para artículo — estilo IJRS/MDPI
+#   1. Mapa de ubicación (S. América → Colombia → finca)
+#   2. Mapas GPR vs GF en etapas fenológicas clave (Ciclo B)
+#   3. Figura comparativa estilo Figure 6 (Salinero-Delgado 2022)
+#   4. Integración fenología + imágenes satelitales
+# ============================================================
+import os, re, json
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import matplotlib.gridspec as gridspec
+import matplotlib.ticker as mticker
+import matplotlib.patheffects as pe
+from matplotlib.colors import Normalize
+from matplotlib.path import Path
+from matplotlib.patches import PathPatch, FancyArrowPatch
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import matplotlib.font_manager as fm
+import rasterio
+from rasterio.warp import reproject, Resampling
+import rasterio.features
+from shapely.geometry import Polygon, mapping
+import geopandas as gpd
+from datetime import datetime
+import warnings
+warnings.filterwarnings("ignore")
+
+# ── Intentar importar cartopy ────────────────────────────────
+try:
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    HAS_CARTOPY = True
+except ImportError:
+    HAS_CARTOPY = False
+    print("⚠  cartopy no instalado — mapa de ubicación usará matplotlib simple")
+
+# ── Intentar importar contextily ─────────────────────────────
+try:
+    import contextily as ctx
+    HAS_CTX = True
+except ImportError:
+    HAS_CTX = False
+    print("⚠  contextily no instalado — fondo satelital no disponible")
+
+
+# ─── ESTILO GLOBAL ARTÍCULO ──────────────────────────────────
+plt.rcParams.update({
+    "font.family":        "serif",
+    "font.serif":         ["Times New Roman", "DejaVu Serif"],
+    "font.size":          9,
+    "axes.titlesize":     10,
+    "axes.labelsize":     9,
+    "xtick.labelsize":    8,
+    "ytick.labelsize":    8,
+    "legend.fontsize":    8,
+    "legend.framealpha":  0.9,
+    "legend.edgecolor":   "0.6",
+    "figure.dpi":         150,
+    "savefig.dpi":        300,
+    "axes.linewidth":     0.6,
+    "xtick.major.width":  0.5,
+    "ytick.major.width":  0.5,
+    "xtick.direction":    "in",
+    "ytick.direction":    "in",
+})
+
+BASE_DIR   = os.path.expanduser("~/GEE_Downloads")
+OUTPUT_DIR = os.path.expanduser("~/analisis_gulupa/figuras_articulo")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+VARIABLES = ["LAI", "FVC", "laiCab"]
+CMAPS     = {"LAI": "YlGn", "FVC": "YlGn", "laiCab": "RdYlGn"}
+VRANGES   = {"LAI": (0, 6), "FVC": (0, 1), "laiCab": (0, 2.5)}
+UNITS     = {"LAI": "m² m⁻²", "FVC": "fracción", "laiCab": "g m⁻²"}
+
+# ─── POLÍGONO REAL DE LA FINCA (WGS84) ───────────────────────
+AREA_TOTAL_COORDS = [
+    [-72.02911590018898, 4.323774005392068],
+    [-72.02320164960223, 4.320341858927772],
+    [-71.99426061433154, 4.337725140154523],
+    [-71.99372417252856, 4.338110271794471],
+    [-71.99303752702075, 4.338666572705499],
+    [-71.99149257462817, 4.340207096166426],
+    [-71.99072009843188, 4.340870376132908],
+    [-71.98967671912509, 4.341426675010239],
+    [-72.00730581274610, 4.349063111509516],
+    [-72.00862576723136, 4.353153345576473],
+    [-72.01213946104087, 4.356828060080524],
+    [-72.01526010903413, 4.352303621556992],
+    [-72.01894546422060, 4.346895815199964],
+    [-72.02098296949191, 4.341000332940370],
+    [-72.02443983146695, 4.334085615058952],
+    [-72.02447201797513, 4.333775368489792],
+    [-72.02456857749966, 4.333529310775441],
+    [-72.02911590018898, 4.323774005392068],
+]
+LOTE_CASA_COORDS = [
+    [-72.02527036942277, 4.327000978587103],
+    [-72.02123566610653, 4.329945886052444],
+    [-72.02102108938534, 4.329988678906903],
+    [-72.02003403646786, 4.329753318177450],
+    [-72.01848908407528, 4.329603543129691],
+    [-72.01829596502621, 4.329582146691876],
+    [-72.01656862242062, 4.328672797525615],
+    [-72.01685830099423, 4.326244294986618],
+    [-72.01699704976303, 4.325322370602150],
+    [-72.01762468667252, 4.324659076998467],
+    [-72.01774806828720, 4.324616283842795],
+    [-72.01786608548386, 4.324659076998467],
+    [-72.01965780110581, 4.325525637880559],
+    [-72.01980264039261, 4.325616573224313],
+    [-72.02000648827774, 4.325718206830860],
+    [-72.02018351407273, 4.325793094742748],
+    [-72.02030689568741, 4.325916124867642],
+    [-72.02041954846604, 4.326097995450447],
+    [-72.02046782822830, 4.326124741120704],
+    [-72.02074141354782, 4.326172883324792],
+    [-72.02128858418686, 4.326199628992403],
+    [-72.02208251805527, 4.325456099080927],
+    [-72.02527036942277, 4.327000978587103],
+]
+
+_poly_total = Polygon(AREA_TOTAL_COORDS)
+_poly_casa  = Polygon(LOTE_CASA_COORDS)
+FINCA_POLY  = _poly_total.difference(_poly_casa)
+FINCA_GDF   = gpd.GeoDataFrame(geometry=[FINCA_POLY], crs="EPSG:4326")
+FINCA_LON, FINCA_LAT = FINCA_POLY.centroid.x, FINCA_POLY.centroid.y
+
+# ─── ETAPAS FENOLÓGICAS ───────────────────────────────────────
+PHENOSTAGES = {
+    "VE":  ("Emergencia",           7,  113, 240),
+    "V4":  ("4ª hoja",             20,  126, 253),
+    "VT":  ("Panoja",              70,  176, 303),
+    "R1":  ("Espigado",            75,  181, 308),
+    "R3":  ("Grano lechoso",       95,  201, 328),
+    "R6":  ("Madurez fisiológica", 120, 226, 353),
+}
+
+TARGET_DOYS_B = [253, 303, 328]
+STAGE_NAMES_B = [
+    "V4 — 4ª hoja\n(Veg.)",
+    "VT — Panoja\n(Pico)",
+    "R3 — Grano lechoso\n(Reprod.)",
+]
+
+
+# ─── UTILIDADES ──────────────────────────────────────────────
+def parse_date(filename):
+    base = os.path.splitext(os.path.basename(filename))[0]
+    m = re.search(r"(\d{4})-(\d{2})-(\d{2})", base)
+    if m: return datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    m = re.search(r"(\d{8})", base)
+    if m:
+        s = m.group(1)
+        return datetime(int(s[:4]), int(s[4:6]), int(s[6:8]))
+    return None
+
+
+def clean(arr, nodata=None):
+    r = arr.astype(np.float32)
+    if nodata is not None: r[r == nodata] = np.nan
+    r[~np.isfinite(r)] = np.nan
+    return r
+
+
+def modal_shape(folder, n=20):
+    tifs = sorted([f for f in os.listdir(folder) if f.endswith(".tif")])[:n]
+    s = {}
+    for t in tifs:
+        with rasterio.open(os.path.join(folder, t)) as src:
+            k = (src.width, src.height)
+            s[k] = s.get(k, 0) + 1
+    return max(s, key=s.get)
+
+
+def load_collection(folder):
+    msh   = modal_shape(folder)
+    tifs  = sorted([f for f in os.listdir(folder) if f.endswith(".tif")])
+    dates, arrays, transforms = [], [], []
+    for tif in tifs:
+        date = parse_date(tif)
+        if date is None: continue
+        fp = os.path.join(folder, tif)
+        with rasterio.open(fp) as src:
+            if (src.width, src.height) != msh: continue
+            arr = clean(src.read(1).astype(np.float32), src.nodata)
+            tf  = src.transform
+        dates.append(date)
+        arrays.append(arr)
+        transforms.append(tf)
+    pairs = sorted(zip(dates, arrays, transforms), key=lambda x: x[0])
+    if pairs:
+        dates, arrays, transforms = zip(*pairs)
+    return list(dates), list(arrays), list(transforms)
+
+
+def reproject_to_ref(src_path, ref_path):
+    with rasterio.open(ref_path) as ref:
+        dst_crs, dst_tf = ref.crs, ref.transform
+        dst_h, dst_w    = ref.height, ref.width
+    with rasterio.open(src_path) as src:
+        if src.crs == dst_crs and (src.width, src.height) == (dst_w, dst_h):
+            return clean(src.read(1).astype(np.float32), src.nodata)
+        sdata = src.read(1).astype(np.float32)
+        dst   = np.full((dst_h, dst_w), np.nan, dtype=np.float32)
+        reproject(source=sdata, destination=dst,
+                  src_transform=src.transform, src_crs=src.crs,
+                  dst_transform=dst_tf, dst_crs=dst_crs,
+                  resampling=Resampling.bilinear,
+                  src_nodata=src.nodata or -9999, dst_nodata=np.nan)
+    return clean(dst)
+
+
+def get_aoi(arr, pad=4):
+    v    = np.isfinite(arr) & (arr > 0)
+    rows = np.where(v.any(axis=1))[0]
+    cols = np.where(v.any(axis=0))[0]
+    if len(rows) == 0: return 0, arr.shape[0], 0, arr.shape[1]
+    return (max(0, rows[0]-pad), min(arr.shape[0], rows[-1]+pad),
+            max(0, cols[0]-pad), min(arr.shape[1], cols[-1]+pad))
+
+
+def crop(arr, ext):
+    return arr[ext[0]:ext[1], ext[2]:ext[3]]
+
+
+def panel_label(ax, ltr, fs=9):
+    ax.text(0.02, 0.97, f"({ltr})", transform=ax.transAxes,
+            fontsize=fs, fontweight="bold", va="top", ha="left",
+            bbox=dict(boxstyle="round,pad=0.15", fc="white",
+                      ec="none", alpha=0.85))
+
+
+def colorbar_h(fig, ax, im, label, nticks=5):
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("bottom", size="6%", pad=0.10)
+    cb  = fig.colorbar(im, cax=cax, orientation="horizontal")
+    cb.set_label(label, fontsize=7, labelpad=1)
+    cb.ax.tick_params(labelsize=7)
+    cb.locator = mticker.MaxNLocator(nbins=nticks)
+    cb.update_ticks()
+    return cb
+
+
+def find_closest_date(target_doy, dates):
+    doys = [(abs(d.timetuple().tm_yday - target_doy), i)
+            for i, d in enumerate(dates)]
+    return min(doys, key=lambda x: x[0])[1]
+
+
+def mask_array_to_finca(arr, src_transform, src_crs):
+    """Enmascara a NaN todos los píxeles fuera de FINCA_POLY."""
+    h, w = arr.shape
+    try:
+        epsg = int(src_crs.to_epsg())
+        finca_repr = FINCA_GDF.to_crs(epsg=epsg)
+    except Exception:
+        finca_repr = FINCA_GDF
+    mask_arr = rasterio.features.geometry_mask(
+        [mapping(geom) for geom in finca_repr.geometry],
+        out_shape=(h, w),
+        transform=src_transform,
+        invert=True,
+        all_touched=True,
+    )
+    result = arr.copy()
+    result[~mask_arr] = np.nan
+    return result
+
+
+def add_north_arrow(ax, x=0.92, y=0.15, size=0.06, color="black"):
+    """Flecha norte geográfico en coordenadas de ejes."""
+    ax.annotate(
+        "", xy=(x, y + size), xytext=(x, y),
+        xycoords="axes fraction",
+        arrowprops=dict(arrowstyle="-|>", color=color,
+                        lw=1.5, mutation_scale=12),
+    )
+    ax.text(x, y + size + 0.03, "N", transform=ax.transAxes,
+            ha="center", va="bottom", fontsize=8,
+            fontweight="bold", color=color)
+
+
+def add_scale_bar_deg(ax, lon0, lat0, length_deg, label, color="black"):
+    """Barra de escala simple en coordenadas geográficas."""
+    ax.plot([lon0, lon0 + length_deg], [lat0, lat0],
+            color=color, lw=2, transform=ax.transData, zorder=10)
+    ax.text(lon0 + length_deg / 2, lat0 - 0.002, label,
+            ha="center", va="top", fontsize=7, color=color,
+            transform=ax.transData, zorder=10)
+
+
+LETTERS = list("abcdefghijklmnopqrstuvwxyz")
+
+
+# ════════════════════════════════════════════════════════════
+# FIGURA A: Mapa de Ubicación — 3 paneles:
+#   (a) América del Sur   (b) Colombia   (c) Finca satelital
+# ════════════════════════════════════════════════════════════
+def fig_location_map():
+    fig = plt.figure(figsize=(12, 4.5))
+    gs  = gridspec.GridSpec(1, 3, figure=fig,
+                            wspace=0.08, left=0.02, right=0.98,
+                            top=0.88, bottom=0.05)
+
+    subtitles = ["(a) América del Sur",
+                 "(b) Colombia",
+                 "(c) Sitio de estudio (Meta, Colombia)"]
+
+    # ── Panel (a): América del Sur ────────────────────────────
+    if HAS_CARTOPY:
+        prj = ccrs.PlateCarree()
+        ax_sa = fig.add_subplot(gs[0], projection=prj)
+        ax_sa.set_extent([-85, -32, -58, 15], crs=prj)
+        ax_sa.add_feature(cfeature.LAND,      facecolor="#e8e0d0",
+                          edgecolor="0.5",    linewidth=0.3)
+        ax_sa.add_feature(cfeature.OCEAN,     facecolor="#c9dff0")
+        ax_sa.add_feature(cfeature.BORDERS,   linewidth=0.4, edgecolor="0.4")
+        ax_sa.add_feature(cfeature.COASTLINE, linewidth=0.5, edgecolor="0.4")
+        # Resaltar Colombia
+        ax_sa.add_feature(
+            cfeature.NaturalEarthFeature(
+                "cultural", "admin_0_countries", "50m",
+                facecolor="#f4b942", edgecolor="0.4", linewidth=0.5),
+        )
+        # Rectángulo Colombia
+        col_ext = [-82, -66, -5, 13]
+        rect_col = mpatches.Rectangle(
+            (col_ext[0], col_ext[2]),
+            col_ext[1]-col_ext[0], col_ext[3]-col_ext[2],
+            linewidth=1.2, edgecolor="red", facecolor="none",
+            transform=prj, zorder=5)
+        ax_sa.add_patch(rect_col)
+        # Punto finca
+        ax_sa.plot(FINCA_LON, FINCA_LAT, "r*", ms=6,
+                   transform=prj, zorder=6)
+        gl = ax_sa.gridlines(draw_labels=True, linewidth=0.3,
+                              color="gray", alpha=0.4,
+                              x_inline=False, y_inline=False)
+        gl.top_labels = False; gl.right_labels = False
+        gl.xlabel_style = {"size": 6}; gl.ylabel_style = {"size": 6}
+    else:
+        ax_sa = fig.add_subplot(gs[0])
+        ax_sa.set_facecolor("#c9dff0")
+        ax_sa.set_xlim(-85, -32); ax_sa.set_ylim(-58, 15)
+        ax_sa.text(0.5, 0.5, "América del Sur\n(instalar cartopy)",
+                   transform=ax_sa.transAxes, ha="center")
+
+    ax_sa.set_title(subtitles[0], fontsize=8.5, fontweight="bold", pad=3)
+
+    # ── Panel (b): Colombia ───────────────────────────────────
+    if HAS_CARTOPY:
+        ax_col = fig.add_subplot(gs[1], projection=prj)
+        ax_col.set_extent([-82, -66, -5, 13], crs=prj)
+        ax_col.add_feature(cfeature.LAND,      facecolor="#e8e0d0",
+                           edgecolor="0.5",    linewidth=0.3)
+        ax_col.add_feature(cfeature.OCEAN,     facecolor="#c9dff0")
+        ax_col.add_feature(cfeature.BORDERS,   linewidth=0.5, edgecolor="0.4")
+        ax_col.add_feature(cfeature.COASTLINE, linewidth=0.5, edgecolor="0.4")
+        ax_col.add_feature(cfeature.RIVERS,    linewidth=0.4,
+                           edgecolor="#7ecbdb", alpha=0.6)
+        # Departamento Meta aproximado
+        meta_lon, meta_lat = FINCA_LON, FINCA_LAT
+        buf = 1.2
+        meta_rect = mpatches.Rectangle(
+            (meta_lon - buf, meta_lat - buf),
+            buf * 2, buf * 2,
+            linewidth=1.2, edgecolor="red", facecolor="#f4b942",
+            alpha=0.35, transform=prj, zorder=4)
+        ax_col.add_patch(meta_rect)
+        ax_col.plot(FINCA_LON, FINCA_LAT, "r*", ms=7,
+                    transform=prj, zorder=6)
+        gl2 = ax_col.gridlines(draw_labels=True, linewidth=0.3,
+                               color="gray", alpha=0.4,
+                               x_inline=False, y_inline=False)
+        gl2.top_labels = False; gl2.right_labels = False
+        gl2.xlabel_style = {"size": 6}; gl2.ylabel_style = {"size": 6}
+        # Etiqueta "Meta"
+        ax_col.text(FINCA_LON + 0.3, FINCA_LAT - 0.8, "Meta",
+                    transform=prj, fontsize=7.5, color="#8B0000",
+                    fontweight="bold", zorder=7)
+    else:
+        ax_col = fig.add_subplot(gs[1])
+        ax_col.set_facecolor("#c9dff0")
+        ax_col.text(0.5, 0.5, "Colombia\n(instalar cartopy)",
+                    transform=ax_col.transAxes, ha="center")
+
+    ax_col.set_title(subtitles[1], fontsize=8.5, fontweight="bold", pad=3)
+
+    # ── Panel (c): Finca con imagen satelital ─────────────────
+    ax_d = fig.add_subplot(gs[2])
+
+    finca_web  = FINCA_GDF.to_crs(epsg=3857)
+    area_gdf   = gpd.GeoDataFrame(
+        geometry=[_poly_total], crs="EPSG:4326").to_crs(epsg=3857)
+    casa_gdf   = gpd.GeoDataFrame(
+        geometry=[_poly_casa],  crs="EPSG:4326").to_crs(epsg=3857)
+
+    # Establecer extent antes del basemap
+    bounds_w   = finca_web.total_bounds        # (minx,miny,maxx,maxy)
+    pad_m      = 350                           # metros de margen
+    ax_d.set_xlim(bounds_w[0] - pad_m, bounds_w[2] + pad_m)
+    ax_d.set_ylim(bounds_w[1] - pad_m, bounds_w[3] + pad_m)
+
+    if HAS_CTX:
+        try:
+            ctx.add_basemap(
+                ax_d,
+                crs=finca_web.crs.to_string(),
+                source=ctx.providers.Esri.WorldImagery,
+                zoom=16,
+                attribution=False,
+            )
+        except Exception:
+            try:
+                ctx.add_basemap(
+                    ax_d,
+                    crs=finca_web.crs.to_string(),
+                    source=ctx.providers.OpenStreetMap.Mapnik,
+                    zoom=15,
+                    attribution=False,
+                )
+            except Exception:
+                ax_d.set_facecolor("#4a7c59")
+
+    # Linderos sobre el mosaico
+    area_gdf.boundary.plot(ax=ax_d, color="red",    linewidth=1.8, zorder=6)
+    finca_web.boundary.plot(ax=ax_d, color="yellow", linewidth=1.2,
+                            linestyle="--", zorder=7)
+    casa_gdf.plot(ax=ax_d,           color="white",  alpha=0.50,   zorder=5)
+    casa_gdf.boundary.plot(ax=ax_d,  color="white",  linewidth=0.9, zorder=6)
+
+    # ── Coordenadas en los ejes (Web Mercator → grados aprox.) ─
+    from pyproj import Transformer
+    tr = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
+
+    xlim = ax_d.get_xlim()
+    ylim = ax_d.get_ylim()
+
+    # 4 ticks en X y 4 en Y (Web Mercator) → convertir a grados
+    xticks_m = np.linspace(xlim[0], xlim[1], 4)
+    yticks_m = np.linspace(ylim[0], ylim[1], 4)
+    xlabels  = [f"{tr.transform(x, ylim[0])[0]:.4f}°O" for x in xticks_m]
+    ylabels  = [f"{tr.transform(xlim[0], y)[1]:.4f}°N" for y in yticks_m]
+
+    ax_d.set_xticks(xticks_m)
+    ax_d.set_xticklabels(xlabels, fontsize=6.0, rotation=30, ha="right",
+                         color="black")
+    ax_d.set_yticks(yticks_m)
+    ax_d.set_yticklabels(ylabels, fontsize=6.0, color="black")
+    ax_d.tick_params(axis="both", direction="out", length=3,
+                     width=0.5, color="black", labelcolor="black")
+    for spine in ax_d.spines.values():
+        spine.set_edgecolor("black")
+        spine.set_linewidth(0.7)
+
+    # ── Norte geográfico ──────────────────────────────────────
+    # Flecha dentro del panel (esquina superior derecha)
+    ax_d.annotate(
+        "", xy=(0.93, 0.93), xytext=(0.93, 0.80),
+        xycoords="axes fraction",
+        arrowprops=dict(arrowstyle="-|>", color="white",
+                        lw=1.8, mutation_scale=14),
+        zorder=15,
+    )
+    ax_d.text(0.93, 0.96, "N", transform=ax_d.transAxes,
+              ha="center", va="bottom", fontsize=9,
+              fontweight="bold", color="white", zorder=15,
+              path_effects=[pe.withStroke(linewidth=1.5, foreground="black")])
+
+    # ── Leyenda fuera del mapa (debajo) ──────────────────────
+    legend_elements = [
+        mpatches.Patch(facecolor="none", edgecolor="red",
+                       linewidth=1.8, label="Perímetro total"),
+        mpatches.Patch(facecolor="none", edgecolor="yellow",
+                       linewidth=1.2, linestyle="--", label="Lote casa"),
+        mpatches.Patch(facecolor="white", edgecolor="white",
+                       label="Área maiz"),
+    ]
+    ax_d.legend(
+        handles=legend_elements,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.16),   # debajo del panel
+        ncol=3,
+        fontsize=7,
+        framealpha=0.95,
+        edgecolor="0.5",
+        facecolor="white",
+        labelcolor="black",
+    )
+
+    ax_d.set_title(subtitles[2], fontsize=8.5, fontweight="bold", pad=3)
+
+    fig.suptitle(
+        "Ubicación del área de estudio — departamento del Meta, Colombia",
+        fontsize=11, fontweight="bold"
+    )
+    out = os.path.join(OUTPUT_DIR, "FigLoc_location_map.png")
+    fig.savefig(out, dpi=300, bbox_inches="tight", facecolor="white")
+    plt.close()
+    print(f"  ✅ {out}")
+
+
+# ════════════════════════════════════════════════════════════
+# FIGURA B: GPR → GF estilo Figure 6 — CICLO B
+# ════════════════════════════════════════════════════════════
+def fig_gpr_gf_comparison():
+    for var in VARIABLES:
+        folder_gpr = os.path.join(BASE_DIR, f"GPR_{var}_2024")
+        folder_gf  = os.path.join(BASE_DIR, f"GF_{var}_2024")
+        if not os.path.isdir(folder_gpr): continue
+
+        dates_gpr, arr_gpr, _ = load_collection(folder_gpr)
+        dates_gf,  arr_gf,  _ = load_collection(folder_gf)
+        if not dates_gpr: continue
+
+        gf_tifs = sorted([f for f in os.listdir(folder_gf)
+                          if f.endswith(".tif")])
+        msh = modal_shape(folder_gf)
+        ref_gf = next(
+            os.path.join(folder_gf, t) for t in gf_tifs
+            if (lambda s: (s.width, s.height) == msh)(
+                rasterio.open(os.path.join(folder_gf, t)))
+        )
+
+        extent = get_aoi(arr_gf[0], pad=5)
+        vmin, vmax = VRANGES[var]
+        cmap       = CMAPS[var]
+        n_cols     = len(TARGET_DOYS_B)
+
+        fig, axes = plt.subplots(
+            3, n_cols,
+            figsize=(3.5 * n_cols, 9.5),
+            gridspec_kw={"hspace": 0.38, "wspace": 0.10}
+        )
+
+        row_titles = [
+            f"{var} — Predicción GPR\n(observación directa S2)",
+            f"{var} — Relleno de gaps GPR\n(reconstrucción temporal)",
+            "Diferencia  GF − GPR",
+        ]
+        letter_idx = 0
+
+        for col, (target_doy, stage_name) in enumerate(
+                zip(TARGET_DOYS_B, STAGE_NAMES_B)):
+
+            idx_gpr = find_closest_date(target_doy, dates_gpr)
+            idx_gf  = find_closest_date(target_doy, dates_gf)
+            date_gpr = dates_gpr[idx_gpr]
+            date_gf  = dates_gf[idx_gf]
+
+            gpr_fp = os.path.join(
+                folder_gpr,
+                sorted([f for f in os.listdir(folder_gpr)
+                        if f.endswith(".tif")])[idx_gpr])
+            gpr_arr = reproject_to_ref(gpr_fp, ref_gf)
+            gf_arr  = arr_gf[idx_gf]
+
+            gpr_c = crop(gpr_arr, extent)
+            gf_c  = crop(gf_arr,  extent)
+            dif_c = gf_c - gpr_c
+            gpr_c = np.where(gpr_c > 0, gpr_c, np.nan)
+            gf_c  = np.where(gf_c  > 0, gf_c,  np.nan)
+
+            for row_idx, (data, title_txt) in enumerate([
+                (gpr_c, f"{stage_name}\n{date_gpr.strftime('%d %b %Y')}"),
+                (gf_c,  f"Relleno de gaps\n{date_gf.strftime('%d %b %Y')}"),
+                (dif_c, "GF − GPR"),
+            ]):
+                ax = axes[row_idx, col]
+                if row_idx < 2:
+                    _cmap = plt.cm.get_cmap(cmap).copy()
+                    _cmap.set_bad("white")
+                    im = ax.imshow(np.ma.masked_invalid(data),
+                                   cmap=_cmap, vmin=vmin, vmax=vmax,
+                                   interpolation="nearest", aspect="equal")
+                else:
+                    d_abs = np.nanmax(np.abs(dif_c)) if np.any(np.isfinite(dif_c)) else 1
+                    _cmap = plt.cm.get_cmap("RdBu_r").copy()
+                    _cmap.set_bad("white")
+                    im = ax.imshow(np.ma.masked_invalid(data),
+                                   cmap=_cmap, vmin=-d_abs, vmax=d_abs,
+                                   interpolation="nearest", aspect="equal")
+
+                ax.axis("off")
+                if row_idx == 0:
+                    ax.set_title(title_txt, fontsize=8.5,
+                                 fontweight="bold", pad=4)
+                else:
+                    ax.set_title(title_txt, fontsize=8, pad=4)
+                panel_label(ax, LETTERS[letter_idx]); letter_idx += 1
+                colorbar_h(fig, ax, im,
+                           UNITS[var] if row_idx < 2 else f"Δ {UNITS[var]}")
+
+        for row, rtitle in enumerate(row_titles):
+            axes[row, 0].text(
+                -0.08, 0.5, rtitle,
+                transform=axes[row, 0].transAxes,
+                fontsize=8, va="center", ha="right",
+                rotation=90, style="italic",
+            )
+
+        fig.suptitle(
+            f"Estilo Figura 6 — {var}: predicción GPR vs. relleno de gaps "
+            f"en etapas fenológicas clave (Ciclo B, 2024)",
+            fontsize=10, fontweight="bold", y=1.01,
+        )
+        out = os.path.join(OUTPUT_DIR, f"Fig6style_GPR_GF_{var}_CicloB.png")
+        fig.savefig(out, dpi=300, bbox_inches="tight", facecolor="white")
+        plt.close()
+        print(f"  ✅ {out}")
+
+
+# ════════════════════════════════════════════════════════════
+# FIGURA C: Serie temporal + barras fenológicas
+# Etiquetas de etapa en eje superior PARA CICLO A Y CICLO B
+# ════════════════════════════════════════════════════════════
+def fig_timeseries_with_phenology():
+    pheno_bg = [
+        (0,   7,   0,   7,  "VE",     "#f7fcf0"),
+        (7,  20,   7,  20,  "V1–V4",  "#e5f5e0"),
+        (20, 35,  20,  35,  "V4–V8",  "#c7e9c0"),
+        (35, 50,  35,  50,  "V8–V12", "#a1d99b"),
+        (50, 65,  50,  65,  "V12–VT", "#74c476"),
+        (65, 70,  65,  70,  "VT",     "#fdae6b"),
+        (70, 75,  70,  75,  "R1",     "#fd8d3c"),
+        (75, 85,  75,  85,  "R2",     "#f16913"),
+        (85, 95,  85,  95,  "R3",     "#d94801"),
+        (95,105,  95, 105,  "R4",     "#a63603"),
+        (105,115,105, 115,  "R5",     "#7f2704"),
+        (115,120,115, 120,  "R6",     "#4d1c00"),
+    ]
+
+    # DOY acumulados desde siembra para cada etiqueta del eje superior
+    stage_offsets = [0, 7, 20, 35, 50, 65, 70, 75, 85, 95, 105, 115, 120]
+    stage_lbls    = ["VE","V1","V4","V8","V12","VT","R1","R2","R3","R4","R5","R6",""]
+
+    doy_a_start = 106   # 15 abr
+    doy_b_start = 233   # 20 ago
+
+    fig, axes = plt.subplots(
+        len(VARIABLES), 1,
+        figsize=(13, 4.0 * len(VARIABLES)),
+        sharex=True,
+        gridspec_kw={"hspace": 0.65}    # más espacio para dos ejes superiores
+    )
+
+    for ax_idx, (ax, var) in enumerate(zip(axes, VARIABLES)):
+        folder_gf  = os.path.join(BASE_DIR, f"GF_{var}_2024")
+        folder_gpr = os.path.join(BASE_DIR, f"GPR_{var}_2024")
+        if not os.path.isdir(folder_gf): continue
+
+        dates_gf,  arr_gf,  _ = load_collection(folder_gf)
+        dates_gpr, arr_gpr, _ = load_collection(folder_gpr)
+
+        med_gf  = [np.nanmean(np.where(a > 0, a, np.nan)) for a in arr_gf]
+        p25_gf  = [np.nanpercentile(np.where(a>0,a,np.nan), 25)
+                   for a in arr_gf]
+        p75_gf  = [np.nanpercentile(np.where(a>0,a,np.nan), 75)
+                   for a in arr_gf]
+        med_gpr = [np.nanmean(np.where(a > 0, a, np.nan))
+                   if np.any(a > 0) else np.nan for a in arr_gpr]
+
+        doys_gf  = [d.timetuple().tm_yday for d in dates_gf]
+        doys_gpr = [d.timetuple().tm_yday for d in dates_gpr]
+
+        # Fondo fenológico
+        for d0, d1, d0b, d1b, lbl, col in pheno_bg:
+            ax.axvspan(doy_a_start + d0, doy_a_start + d1,
+                       alpha=0.20, color=col, lw=0)
+            ax.axvspan(doy_b_start + d0b, doy_b_start + d1b,
+                       alpha=0.20, color=col, lw=0)
+
+        ax.axvline(doy_a_start, color="#888", lw=0.8,
+                   linestyle="--", alpha=0.6)
+        ax.axvline(doy_b_start, color="#888", lw=0.8,
+                   linestyle="--", alpha=0.6)
+
+        # Curvas
+        ax.fill_between(doys_gf, p25_gf, p75_gf,
+                        alpha=0.18, color="#E07B3F")
+        ax.plot(doys_gf, med_gf, color="#E07B3F", lw=1.8, zorder=3,
+                label="GF relleno de gaps (mediana)")
+        ax.scatter(doys_gpr, med_gpr, color="#2166AC", s=25,
+                   edgecolors="white", lw=0.4, zorder=4,
+                   label="Estimación GPR S2 (mediana)")
+
+        ax.set_ylabel(f"{var}\n({UNITS[var]})", fontsize=9)
+        ax.legend(loc="upper left", fontsize=7.5, framealpha=0.85)
+        ax.grid(True, linestyle=":", lw=0.4, alpha=0.5)
+
+        # ── Eje superior Ciclo A ──────────────────────────────
+        ax2 = ax.twiny()
+        ticks_a = [doy_a_start + d for d in stage_offsets]
+        ax2.set_xlim(ax.get_xlim())
+        ax2.set_xticks(ticks_a)
+        ax2.set_xticklabels(stage_lbls, fontsize=6.5, color="#1a5276")
+        ax2.tick_params(length=3, width=0.5, color="#1a5276",
+                        labelcolor="#1a5276", top=True,
+                        labeltop=True, direction="out")
+        ax2.spines["top"].set_edgecolor("#1a5276")
+        ax2.spines["top"].set_linewidth(0.6)
+
+        # Etiqueta "Ciclo A" sobre el eje superior
+        ax2.text(0.13, 1.045, "Ciclo A →",
+                 transform=ax2.transAxes,
+                 fontsize=7, color="#1a5276",
+                 fontweight="bold", va="bottom", ha="left")
+
+        # ── Eje superior Ciclo B ──────────────────────────────
+        ax3 = ax.twiny()
+        ticks_b = [doy_b_start + d for d in stage_offsets]
+        ax3.set_xlim(ax.get_xlim())
+        ax3.set_xticks(ticks_b)
+        ax3.set_xticklabels(stage_lbls, fontsize=6.5, color="#7d6608")
+        # Desplazar este eje un poco más arriba para que no se solape con ax2
+        ax3.spines["top"].set_position(("axes", 1.10))
+        ax3.tick_params(length=3, width=0.5, color="#7d6608",
+                        labelcolor="#7d6608", top=True,
+                        labeltop=True, direction="out")
+        ax3.spines["top"].set_edgecolor("#7d6608")
+        ax3.spines["top"].set_linewidth(0.6)
+
+        # Etiqueta "Ciclo B" sobre el segundo eje superior
+        ax3.text(0.60, 1.045, "Ciclo B →",
+                 transform=ax3.transAxes,
+                 fontsize=7, color="#7d6608",
+                 fontweight="bold", va="bottom", ha="left")
+
+        # Etiquetas de inicio de ciclo en el área del gráfico
+        ymax_approx = ax.get_ylim()[1] if ax.get_ylim()[1] > 0 else 1
+        ax.text(doy_a_start + 2, ymax_approx * 0.96,
+                "Ciclo A", fontsize=7, color="#1a5276",
+                va="top", style="italic", fontweight="bold")
+        ax.text(doy_b_start + 2, ymax_approx * 0.96,
+                "Ciclo B", fontsize=7, color="#7d6608",
+                va="top", style="italic", fontweight="bold")
+
+    axes[-1].set_xlabel("Día del año (DOY) — 2024", fontsize=9)
+
+    month_doys = {"Ene":1,"Feb":32,"Mar":60,"Abr":91,"May":121,
+                  "Jun":152,"Jul":182,"Ago":213,"Sep":244,
+                  "Oct":274,"Nov":305,"Dic":335}
+    axes[-1].set_xticks(list(month_doys.values()))
+    axes[-1].set_xticklabels(list(month_doys.keys()), fontsize=8)
+    axes[-1].set_xlim(1, 366)
+
+    fig.suptitle(
+        "Perfiles temporales de LAI, FVC y laiCab — "
+        "predicción GPR y relleno de gaps (2024)",
+        fontsize=11, fontweight="bold", y=1.01
+    )
+
+    out = os.path.join(OUTPUT_DIR, "FigTS_timeseries_phenology.png")
+    fig.savefig(out, dpi=300, bbox_inches="tight", facecolor="white")
+    plt.close()
+    print(f"  ✅ {out}")
+
+
+# ════════════════════════════════════════════════════════════
+# FIGURA D: LSP maps — panel 3×4
+# POS y LOS: exterior blanco, texto leyenda negro
+# ════════════════════════════════════════════════════════════
+def fig_lsp_full_panel():
+    LSP_BANDS  = ["sos", "eos", "pos", "los"]
+    LSP_TITLES = {"sos": "SOS (DOY)", "eos": "EOS (DOY)",
+                  "pos": "POS (DOY)", "los": "LOS (DOY)"}
+    LSP_CMAPS  = {"sos": "YlOrBr", "eos": "YlOrBr",
+                  "pos": "RdYlGn",  "los": "Blues"}
+    CLIP_BANDS = {"pos", "los"}
+
+    fig, axes = plt.subplots(
+        len(VARIABLES), 4,
+        figsize=(14, 3.8 * len(VARIABLES)),
+        gridspec_kw={"hspace": 0.40, "wspace": 0.12}
+    )
+    # Fondo blanco para toda la figura (celdas vacías y exteriores al pol.)
+    fig.patch.set_facecolor("white")
+
+    letter_idx = 0
+
+    for row, var in enumerate(VARIABLES):
+        lsp_f = os.path.join(BASE_DIR, f"LSP_{var}_2024.tif")
+        if not os.path.exists(lsp_f):
+            for col in range(4): axes[row, col].set_visible(False)
+            continue
+
+        arrays      = {}
+        transforms_ = {}
+        crss_       = {}
+        with rasterio.open(lsp_f) as src:
+            nd      = src.nodata
+            src_crs = src.crs
+            src_tf  = src.transform
+            for bi in range(src.count):
+                bname = LSP_BANDS[bi] if bi < 4 else f"b{bi}"
+                desc  = (src.descriptions[bi] or "").lower()
+                key   = next((b for b in LSP_BANDS if b in desc), bname)
+                arr   = clean(src.read(bi+1).astype(np.float32), nd)
+                arrays[key]      = arr
+                transforms_[key] = src_tf
+                crss_[key]       = src_crs
+
+        ref_arr = list(arrays.values())[0]
+        extent  = get_aoi(ref_arr, pad=5)
+
+        for col, bname in enumerate(LSP_BANDS):
+            ax = axes[row, col]
+            ax.set_facecolor("white")      # fondo del axes = blanco
+
+            if bname not in arrays:
+                ax.set_visible(False)
+                letter_idx += 1
+                continue
+
+            arr_raw = arrays[bname]
+
+            # ── Recorte estricto al polígono para POS y LOS ──
+            if bname in CLIP_BANDS:
+                arr_masked = mask_array_to_finca(
+                    arr_raw, transforms_[bname], crss_[bname])
+            else:
+                arr_masked = arr_raw
+
+            arr_c = crop(arr_masked, extent)
+
+            # Usar masked array → NaN se renderiza con set_bad("white")
+            arr_ma = np.ma.masked_invalid(arr_c)
+
+            valid = arr_ma.compressed()
+            vmin  = float(np.percentile(valid, 2))  if valid.size > 0 else 0
+            vmax  = float(np.percentile(valid, 98)) if valid.size > 0 else 1
+
+            # Copia del cmap con NaN → blanco
+            import copy
+            _cmap = copy.copy(plt.cm.get_cmap(LSP_CMAPS[bname]))
+            _cmap.set_bad(color="white")    # ← exterior blanco
+            _cmap.set_under(color="white")
+
+            im = ax.imshow(arr_ma, cmap=_cmap,
+                           vmin=vmin, vmax=vmax,
+                           interpolation="nearest", aspect="equal")
+
+            ax.axis("off")
+            panel_label(ax, LETTERS[letter_idx]); letter_idx += 1
+
+            # Colorbar con texto negro explícito
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("bottom", size="6%", pad=0.10)
+            cb  = fig.colorbar(im, cax=cax, orientation="horizontal")
+            cb.set_label("DOY" if bname != "los" else "días",
+                         fontsize=7, labelpad=1, color="black")
+            cb.ax.tick_params(labelsize=7, labelcolor="black",
+                              color="black")
+            cb.outline.set_edgecolor("black")
+            cb.locator = mticker.MaxNLocator(nbins=5)
+            cb.update_ticks()
+
+            if row == 0:
+                ax.set_title(LSP_TITLES[bname],
+                             fontsize=9, fontweight="bold",
+                             pad=5, color="black")
+            if col == 0:
+                ax.text(-0.10, 0.5, var,
+                        transform=ax.transAxes,
+                        fontsize=10, fontweight="bold",
+                        va="center", ha="right",
+                        rotation=90, color="black")
+
+    fig.suptitle(
+        "Métricas de fenología de la superficie terrestre (LSP) — "
+        "LAI, FVC, laiCab (2024)",
+        fontsize=11, fontweight="bold", color="black"
+    )
+    out = os.path.join(OUTPUT_DIR, "FigLSP_full_panel.png")
+    fig.savefig(out, dpi=300, bbox_inches="tight", facecolor="white")
+    plt.close()
+    print(f"  ✅ {out}")
+
+
+# ─── EJECUCIÓN PRINCIPAL ─────────────────────────────────────
+if __name__ == "__main__":
+    print("=" * 60)
+    print("  Figuras artículo — estilo IJRS/MDPI")
+    print("=" * 60)
+
+    print("\n[1] Mapa de ubicación (3 paneles)...")
+    fig_location_map()
+
+    print("\n[2] Comparación GPR→GF estilo Figura 6 (Ciclo B)...")
+    fig_gpr_gf_comparison()
+
+    print("\n[3] Series temporales con fenología (Ciclo A + B)...")
+    fig_timeseries_with_phenology()
+
+    print("\n[4] Panel completo LSP (3×4)...")
+    fig_lsp_full_panel()
+
+    print(f"\n✅ Todas las figuras en: {OUTPUT_DIR}")
+```
+
+
+</details>
+
+
+## code_modis/validacion_modis_gee.js
+
+<details>
+<summary>Google Earth Engine / JavaScript: code_modis/validacion_modis_gee.js</summary>
+
+
+```javascript
+// Validación externa con MODIS MCD15A3H v6.1 para LAI y FVC/FPAR
+// ------------------------------------------------------------------
+// Propósito: construir pares espacio-temporales entre los mapas gap-filled
+// derivados de Sentinel-2/GPR y el producto MODIS MCD15A3H.
+// IMPORTANTE: ajustar las rutas de assets a los nombres reales de su proyecto.
+
+// 1. Parámetros generales ----------------------------------------------------
+var START = '2023-01-01';
+var END   = '2023-12-31';
+var N_POINTS = 500;
+var WINDOW_DAYS = 2;
+var SCALE_MODIS = 500;
+
+// 2. Área de estudio ---------------------------------------------------------
+// Reemplace esta ruta por el AOI usado en el informe regional 2023.
+var aoi = ee.FeatureCollection('users/USUARIO/AOI_PUERTO_GAITAN_UPRA_2023');
+
+// 3. Colecciones Sentinel-2/GPR gap-filled ----------------------------------
+// Deben contener una banda comparable con LAI o FVC y conservar system:time_start.
+var gfLai = ee.ImageCollection('users/USUARIO/GF_LAI_2023')
+  .filterDate(START, END)
+  .filterBounds(aoi);
+
+var gfFvc = ee.ImageCollection('users/USUARIO/GF_FVC_2023')
+  .filterDate(START, END)
+  .filterBounds(aoi);
+
+// 4. Producto MODIS MCD15A3H -------------------------------------------------
+// Lai: factor 0.1; Fpar: factor 0.01 según la documentación del producto.
+var modis = ee.ImageCollection('MODIS/061/MCD15A3H')
+  .filterDate(START, END)
+  .filterBounds(aoi)
+  .map(function(img) {
+    var lai = img.select('Lai').multiply(0.1).rename('LAI_MODIS');
+    var fpar = img.select('Fpar').multiply(0.01).rename('FPAR_MODIS');
+    return lai.addBands(fpar).copyProperties(img, ['system:time_start']);
+  });
+
+// 5. Puntos fijos de validación ---------------------------------------------
+var points = ee.FeatureCollection.randomPoints({
+  region: aoi.geometry(),
+  points: N_POINTS,
+  seed: 2026,
+  maxError: 10
+});
+
+// 6. Función para encontrar MODIS más cercano --------------------------------
+function nearestModis(targetDate) {
+  targetDate = ee.Date(targetDate);
+  var start = targetDate.advance(-WINDOW_DAYS, 'day');
+  var end = targetDate.advance(WINDOW_DAYS, 'day');
+  var filtered = modis.filterDate(start, end);
+  var withDiff = filtered.map(function(img) {
+    var diff = ee.Number(img.get('system:time_start')).subtract(targetDate.millis()).abs();
+    return img.set('time_diff', diff);
+  });
+  return ee.Image(withDiff.sort('time_diff').first());
+}
+
+// 7. Construcción de pares LAI ----------------------------------------------
+function sampleLai(img) {
+  img = ee.Image(img);
+  var date = ee.Date(img.get('system:time_start'));
+  var mod = nearestModis(date);
+  var pair = img.select([0]).rename('LAI_GF')
+    .addBands(mod.select('LAI_MODIS'))
+    .set('date', date.format('YYYY-MM-dd'));
+  return pair.sampleRegions({
+    collection: points,
+    scale: SCALE_MODIS,
+    geometries: true
+  }).map(function(f) { return f.set('date', date.format('YYYY-MM-dd')); });
+}
+
+// 8. Construcción de pares FVC-FPAR -----------------------------------------
+function sampleFvc(img) {
+  img = ee.Image(img);
+  var date = ee.Date(img.get('system:time_start'));
+  var mod = nearestModis(date);
+  var pair = img.select([0]).rename('FVC_GF')
+    .addBands(mod.select('FPAR_MODIS'))
+    .set('date', date.format('YYYY-MM-dd'));
+  return pair.sampleRegions({
+    collection: points,
+    scale: SCALE_MODIS,
+    geometries: true
+  }).map(function(f) { return f.set('date', date.format('YYYY-MM-dd')); });
+}
+
+var samplesLai = gfLai.map(sampleLai).flatten();
+var samplesFvc = gfFvc.map(sampleFvc).flatten();
+
+// 9. Exportación -------------------------------------------------------------
+Export.table.toDrive({
+  collection: samplesLai,
+  description: 'validacion_MODIS_LAI_vs_GF_2023',
+  fileFormat: 'CSV'
+});
+
+Export.table.toDrive({
+  collection: samplesFvc,
+  description: 'validacion_MODIS_FPAR_vs_FVC_GF_2023',
+  fileFormat: 'CSV'
+});
+```
+
+
+</details>
+
+
+## code_modis/validacion_modis_python.py
+
+<details>
+<summary>Python: code_modis/validacion_modis_python.py</summary>
+
+
+```python
+"""Validación externa MODIS vs productos GPR gap-filled.
+
+Entradas esperadas:
+  data/validacion_MODIS_LAI_vs_GF_2023.csv con columnas LAI_MODIS, LAI_GF
+  data/validacion_MODIS_FPAR_vs_FVC_GF_2023.csv con columnas FPAR_MODIS, FVC_GF
+
+Este script calcula MSE, RMSE, MAE, bias, R², pendiente, intercepto y Pearson r,
+y genera un panel de dispersión con línea 1:1 y recta de regresión.
+"""
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from scipy.stats import pearsonr, linregress
+
+ROOT = Path(__file__).resolve().parents[1]
+DATA = ROOT / "data"
+OUT = ROOT / "figuras_finales" / "03_validacion_modis"
+OUT.mkdir(parents=True, exist_ok=True)
+
+
+def metrics(y_true, y_pred):
+    mask = np.isfinite(y_true) & np.isfinite(y_pred)
+    y_true = np.asarray(y_true)[mask]
+    y_pred = np.asarray(y_pred)[mask]
+    reg = linregress(y_true, y_pred)
+    return {
+        "n": len(y_true),
+        "MSE": mean_squared_error(y_true, y_pred),
+        "RMSE": mean_squared_error(y_true, y_pred, squared=False),
+        "MAE": mean_absolute_error(y_true, y_pred),
+        "Bias": float(np.mean(y_pred - y_true)),
+        "R2": r2_score(y_true, y_pred),
+        "Slope": reg.slope,
+        "Intercept": reg.intercept,
+        "Pearson_r": pearsonr(y_true, y_pred)[0],
+    }
+
+
+def plot_panel(lai_df, fvc_df):
+    fig, axes = plt.subplots(1, 2, figsize=(11, 5), constrained_layout=True)
+
+    panels = [
+        (axes[0], lai_df["LAI_MODIS"], lai_df["LAI_GF"], "LAI MODIS", "LAI GF", "LAI"),
+        (axes[1], fvc_df["FPAR_MODIS"], fvc_df["FVC_GF"], "FPAR MODIS", "FVC GF", "FVC-FPAR"),
+    ]
+
+    rows = []
+    for ax, x, y, xlabel, ylabel, name in panels:
+        m = metrics(x.to_numpy(), y.to_numpy())
+        rows.append({"Variable": name, **m})
+        ax.scatter(x, y, s=10, alpha=0.45)
+        lim_min = np.nanmin([x.min(), y.min()])
+        lim_max = np.nanmax([x.max(), y.max()])
+        ax.plot([lim_min, lim_max], [lim_min, lim_max], linestyle="--", linewidth=1, label="1:1")
+        xx = np.linspace(lim_min, lim_max, 100)
+        ax.plot(xx, m["Slope"] * xx + m["Intercept"], linewidth=1.2, label="Regresión")
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.set_title(name)
+        ax.legend()
+        ax.text(0.03, 0.97, f"n={m['n']}\nRMSE={m['RMSE']:.3f}\nBias={m['Bias']:.3f}\nR²={m['R2']:.2f}\nr={m['Pearson_r']:.2f}",
+                transform=ax.transAxes, va="top", ha="left")
+
+    fig.savefig(OUT / "fig_modis_lai_fvc_scatter.png", dpi=300)
+    pd.DataFrame(rows).to_csv(OUT / "metricas_validacion_modis.csv", index=False)
+    return pd.DataFrame(rows)
+
+
+if __name__ == "__main__":
+    lai = pd.read_csv(DATA / "validacion_MODIS_LAI_vs_GF_2023.csv")
+    fvc = pd.read_csv(DATA / "validacion_MODIS_FPAR_vs_FVC_GF_2023.csv")
+    summary = plot_panel(lai, fvc)
+    print(summary.to_string(index=False))
+```
+
+
+</details>
+
+
+## scripts_julia/gpr_temporal_kernel_check.jl
+
+<details>
+<summary>Julia: scripts_julia/gpr_temporal_kernel_check.jl</summary>
+
+
+```julia
+# Verificación numérica del kernel RBF temporal usado conceptualmente en el gap-filling GPR.
+# Este script no reemplaza el flujo GEE; sirve como comprobación independiente en Julia.
+
+using LinearAlgebra
+using Statistics
+
+function rbf_kernel(t1::AbstractVector, t2::AbstractVector; ell::Float64=30.0, sigma_f::Float64=1.0)
+    K = Matrix{Float64}(undef, length(t1), length(t2))
+    for i in eachindex(t1), j in eachindex(t2)
+        K[i, j] = sigma_f^2 * exp(-0.5 * ((t1[i] - t2[j])^2) / ell^2)
+    end
+    return K
+end
+
+function gpr_predict(t_train, y_train, t_star; ell=30.0, sigma_f=1.0, sigma_n=0.05)
+    K = rbf_kernel(t_train, t_train; ell=ell, sigma_f=sigma_f) .+ (sigma_n^2) .* I
+    Ks = rbf_kernel(t_train, t_star; ell=ell, sigma_f=sigma_f)
+    alpha = cholesky(Symmetric(K)) \ y_train
+    return transpose(Ks) * alpha
+end
+
+# Ejemplo mínimo reproducible con una serie fenológica sintética.
+t_train = [100.0, 120.0, 150.0, 180.0, 210.0, 240.0]
+y_train = [0.3, 0.8, 1.9, 2.8, 1.7, 0.6]
+t_star = collect(100.0:10.0:240.0)
+y_hat = gpr_predict(t_train, y_train, t_star; ell=30.0, sigma_f=1.0, sigma_n=0.05)
+
+println("Predicción GPR temporal en Julia")
+println(hcat(t_star, y_hat))
+```
+
+
+</details>
+
+
+## scripts_julia/validacion_modis_metricas.jl
+
+<details>
+<summary>Julia: scripts_julia/validacion_modis_metricas.jl</summary>
+
+
+```julia
+# Cálculo de métricas de validación MODIS en Julia.
+# Entrada: CSV con columnas y_true e y_pred, o adaptar nombres a LAI_MODIS/LAI_GF, FPAR_MODIS/FVC_GF.
+
+using CSV
+using DataFrames
+using Statistics
+using GLM
+
+function regression_metrics(df::DataFrame, true_col::Symbol, pred_col::Symbol)
+    clean = dropmissing(df[:, [true_col, pred_col]])
+    y = Float64.(clean[:, true_col])
+    ŷ = Float64.(clean[:, pred_col])
+    n = length(y)
+    residuals = ŷ .- y
+    mse = mean(residuals .^ 2)
+    rmse = sqrt(mse)
+    mae = mean(abs.(residuals))
+    bias = mean(residuals)
+    r = cor(y, ŷ)
+    r2 = 1 - sum(residuals .^ 2) / sum((y .- mean(y)) .^ 2)
+    reg_df = DataFrame(y_true=y, y_pred=ŷ)
+    model = lm(@formula(y_pred ~ y_true), reg_df)
+    slope = coef(model)[2]
+    intercept = coef(model)[1]
+    return DataFrame(n=n, MSE=mse, RMSE=rmse, MAE=mae, Bias=bias,
+                     R2=r2, Slope=slope, Intercept=intercept, Pearson_r=r)
+end
+
+# Ejemplo de uso:
+# lai = CSV.read("data/validacion_MODIS_LAI_vs_GF_2023.csv", DataFrame)
+# println(regression_metrics(lai, :LAI_MODIS, :LAI_GF))
+# fvc = CSV.read("data/validacion_MODIS_FPAR_vs_FVC_GF_2023.csv", DataFrame)
+# println(regression_metrics(fvc, :FPAR_MODIS, :FVC_GF))
+```
+
+
+</details>

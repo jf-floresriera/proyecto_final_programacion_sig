@@ -1,0 +1,29 @@
+# Quarto / ejecución
+.quarto/
+*_cache/
+*_files/
+*.aux
+*.log
+*.out
+*.toc
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# R / RStudio
+.Rhistory
+.RData
+.Rproj.user/
+
+# Julia
+.julia/
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Temporales
+*.tmp
+*.bak
